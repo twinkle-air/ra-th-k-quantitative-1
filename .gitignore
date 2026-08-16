@@ -1,0 +1,13 @@
+.runtime/
+.venv/
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.review/
+dist/
+build/
+*.egg-info/

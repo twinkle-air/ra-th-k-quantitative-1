@@ -1,0 +1,6 @@
+interface:
+  display_name: "Ra–Th–K Quantitative 1"
+  short_description: "Soil HPGe Ra-Th-K analysis and traceable reports"
+  default_prompt: "Use $ra-th-k-quantitative-1 to analyze soil HPGe gamma spectra and export traceable Ra-Th-K results."
+policy:
+  allow_implicit_invocation: true
