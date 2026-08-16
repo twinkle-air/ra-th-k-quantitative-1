@@ -1,5 +1,9 @@
 # Ra–Th–K Quantitative 1
 
+<p align="center">
+  <img src="assets/project-icon.png" alt="Ra–Th–K Quantitative 1 图标" width="220">
+</p>
+
 面向土壤高纯锗（HPGe）γ 能谱的镭-钍-钾定量分析 Agent Skill。它把谱线解析、活时间读取、能量刻度、特征峰积分、效率标准源相对测量、比活度/含量计算、质量核查和中英文报告导出整合在一个本地可视化工作台中。
 
 > 本项目是辅助计算与可追溯报告工具，不是经认证的实验室测量系统。使用者仍需对样品制备、标准源溯源、测量几何一致性、衰变链平衡、探测限和不确定度负责。
