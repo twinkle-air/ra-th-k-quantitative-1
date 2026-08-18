@@ -154,4 +154,4 @@ ra-th-k-quantitative-1/
 
 ## 作者与反馈
 
-twinkle-air   邮箱：twinkleair369@gmai.com  或者twinkle-air@qq.com
+twinkle-air   邮箱：twinkleair369@gmail.com  或者twinkle-air@qq.com
