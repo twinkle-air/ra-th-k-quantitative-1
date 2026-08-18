@@ -40,7 +40,18 @@ def copy_skill(destination: Path, force: bool) -> Path:
     shutil.copytree(
         SKILL_ROOT,
         destination,
-        ignore=shutil.ignore_patterns(".git", ".venv", ".runtime", "__pycache__", "*.pyc", "*.pyo"),
+        ignore=shutil.ignore_patterns(
+            ".git",
+            ".review",
+            ".venv",
+            ".runtime",
+            "build",
+            "dist",
+            "__pycache__",
+            "*.egg-info",
+            "*.pyc",
+            "*.pyo",
+        ),
     )
     return destination
 

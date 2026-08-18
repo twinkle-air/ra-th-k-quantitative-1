@@ -1,14 +1,27 @@
 # Ra–Th–K Quantitative 1
 
+> 当前版本：**v1.1.0（2026-08-18）** · 同一 Skill 的增量更新，不是新建项目
+
 <p align="center">
   <img src="assets/project-icon.png" alt="Ra–Th–K Quantitative 1 图标" width="220">
 </p>
 
-面向土壤高纯锗（HPGe）γ 能谱的镭-钍-钾定量分析 Agent Skill。它把谱线解析、活时间读取、能量刻度、特征峰积分、效率标准源相对测量、比活度/含量计算、质量核查和四语言报告导出整合在一个本地可视化工作台中。
+面向土壤高纯锗（HPGe）γ 能谱的镭-钍-钾定量分析 Agent Skill。它把谱线解析、活时间读取、能量刻度、特征峰积分、效率标准源相对测量、比活度/含量计算、质量核查和四语言报告导出整合在一个可离线运行的本地可视化工作台中。既可被 Codex、Claude Code、WorkBuddy 等 Agent 调用，也可不借助 Agent，直接在浏览器中分析和导出数据。
 
 > 本项目是辅助计算与可追溯报告工具，不是经认证的实验室测量系统。使用者仍需对样品制备、标准源溯源、测量几何一致性、衰变链平衡、探测限和不确定度负责。
 
 ![Ra–Th–K Quantitative 1 界面](assets/ui-verification.png)
+
+## v1.1.0 更新内容
+
+本次在原 GitHub 仓库和原 Skill 名称上进行更新：
+
+- 界面和 PNG、PDF、Excel 导出由中英双语扩展为简体中文、繁體中文、English、Français 四语言；
+- 为每个测试样增加原始能谱图和 `E = a × CH + b` 能量刻度拟合图；
+- 界面与导出报告同步显示 `R / 百分比偏差 / RMS`，Excel 内同时保留稳定图片和可编辑散点图；
+- 新增 PDF、XLS、XLSX “校准与分析参数”文件导入，自动识别并填入质量、参考日期、Ra/Th/K 活度、ROI、本底窗及可选刻度系数；
+- 增强 `TLIVE`、`LIVE TIME`、“活时间”及可推导实/死时间元数据的自动读取；
+- 增加项目图标，更新详细教程和作者反馈邮箱。
 
 ## 主要能力
 
@@ -58,6 +71,15 @@ python scripts/install.py --tool all --scope project --project-root /path/to/you
 
 安装器默认拒绝覆盖已有 Skill。确需更新时加 `--force`；旧版本会先移动到带时间戳的备份目录。
 
+已安装旧版本时，在新仓库目录内执行：
+
+```bash
+git pull
+python scripts/install.py --tool all --scope user --force
+```
+
+`--force` 只替换同名 Skill 安装目录，且会先建立时间戳备份；不会创建第二个 Skill。
+
 ### 3. 启动可视化工作台
 
 需要 Python 3.10 或更高版本。首次运行自动建立独立虚拟环境并安装依赖：
@@ -73,6 +95,8 @@ python scripts/start_app.py
 ```
 
 浏览器打开 `http://127.0.0.1:8000/`。服务只监听本机回环地址，谱线不会由本项目主动上传到云端。
+
+若不想安装到任何 Agent，也可在 clone 后直接执行本步，将项目当作独立本地 Web 应用使用。默认端口为 `8000`；需要更换端口时可使用 `python scripts/start_app.py --port 8010`。
 
 ## 在不同 Agent 中调用
 
