@@ -17,6 +17,7 @@ from app.services.analysis import (
     _validated_th232_activity, analyze_batch,
 )
 from app.services.exporters import export_pdf, export_png, export_xlsx
+from app.services.parameter_import import parse_analysis_parameters
 from app.services.parsers import Spectrum, inspect_spectrum_metadata, parse_spectrum
 from app.services.spectrum import Calibration, PeakArea, fit_manual_calibration, integrate_peak
 
@@ -199,6 +200,50 @@ class CoreTests(unittest.TestCase):
             self.assertIn(f"data-language=\"{language}\"", html)
         self.assertIn("const zhtTranslations", script)
         self.assertIn("const frTranslations", script)
+
+    def test_parameter_import_from_excel_and_pdf(self):
+        from openpyxl import Workbook
+        from reportlab.pdfgen.canvas import Canvas
+
+        workbook = Workbook()
+        sheet = workbook.active
+        rows = [
+            ("校准源质量 (g)", 337.76), ("活度参考日期", "2015-01-25"),
+            ("Ra-226 活度 (Bq)", 903), ("Th-232 活度 (Bq)", 483), ("K-40 活度 (Bq)", 668),
+            ("ROI 半宽 (keV)", 2.4), ("本底间隔 (keV)", 1.5), ("本底窗宽 (keV)", 3.6),
+            ("刻度斜率", 0.297), ("刻度截距", 0.042), ("Ra/Th 衰变链平衡", "已确认"),
+            ("K-40 干扰修正", "true"),
+        ]
+        for row in rows:
+            sheet.append(row)
+        excel_stream = BytesIO()
+        workbook.save(excel_stream)
+        excel = parse_analysis_parameters("parameters.xlsx", excel_stream.getvalue())
+        self.assertEqual(excel["recognized_count"], 12)
+        self.assertAlmostEqual(excel["values"]["calibration_mass_g"], 337.76)
+        self.assertEqual(excel["values"]["reference_date"], "2015-01-25")
+        self.assertEqual(excel["values"]["ra_activity_bq"], 903)
+        self.assertTrue(excel["values"]["assume_chain_equilibrium"])
+        self.assertTrue(excel["values"]["correct_k_interference"])
+
+        pdf_stream = BytesIO()
+        canvas = Canvas(pdf_stream)
+        lines = [
+            "Calibration source mass: 337.76 g", "Activity reference date: 2015-01-25",
+            "Ra-226 activity: 903 Bq", "Th-232 activity: 483 Bq", "K-40 activity: 668 Bq",
+            "ROI half-width: 2.4 keV", "Background gap: 1.5 keV", "Background window width: 3.6 keV",
+            "Calibration slope: 0.297", "Calibration intercept: 0.042",
+        ]
+        for index, line in enumerate(lines):
+            canvas.drawString(72, 780 - index * 28, line)
+        canvas.save()
+        pdf = parse_analysis_parameters("parameters.pdf", pdf_stream.getvalue())
+        self.assertEqual(pdf["recognized_count"], 10)
+        self.assertAlmostEqual(pdf["values"]["roi_half_width_keV"], 2.4)
+        self.assertAlmostEqual(pdf["values"]["calibration_slope"], 0.297)
+        self.assertEqual(pdf["values"]["reference_date"], "2015-01-25")
+        with self.assertRaisesRegex(ValueError, "仅支持"):
+            parse_analysis_parameters("parameters.txt", b"Ra-226: 903")
 
 
 if __name__ == "__main__":

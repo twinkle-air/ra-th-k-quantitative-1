@@ -31,6 +31,7 @@
 
         <article class="panel">
           <div class="panel-head"><div><span class="kicker">02</span><h3 data-i18n="paramsTitle">校准与分析参数</h3></div><button class="ghost" id="resetBtn" data-i18n="reset">恢复默认</button></div>
+          <div class="parameter-import"><input id="parameterFile" type="file" accept=".pdf,.xls,.xlsx" hidden><div><b data-i18n="parameterImportTitle">从文件导入参数</b><small data-i18n="parameterImportHint">支持 PDF、XLS、XLSX；自动识别并填入下方字段</small><span id="parameterImportStatus"></span></div><button type="button" id="parameterImportBtn" data-i18n="parameterImportButton">选择参数文件</button></div>
           <div class="form-grid">
             <label><span data-i18n="calMass">校准源质量 (g)</span><input id="calMass" type="number" value="337.76" min="0" step="0.01"></label>
             <label><span data-i18n="refDate">活度参考日期</span><input id="refDate" type="date" value="2015-01-25"></label>

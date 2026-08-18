@@ -6,4 +6,4 @@ openpyxl>=3.1
 xlrd>=2.0.1
 pillow>=10
 reportlab>=4
-
+pypdf>=5,<7

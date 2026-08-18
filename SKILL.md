@@ -28,7 +28,7 @@ Treat the directory containing this `SKILL.md` as `SKILL_DIR`. Resolve every rel
 3. Import one or more sample spectra. Accept `.xls`, `.xlsx`, `.txt`, `.csv`, and `.dat`.
 4. Read live time from `TLIVE`, localized live-time labels, or derivable real/dead-time metadata. If the file provides none, ask the user for live time; never invent it.
 5. Require the net mass of every sample in grams. Never infer mass from a filename.
-6. Review reference date, source activities, ROI width, background windows, equilibrium confirmation, and K-40 interference correction before running.
+6. Review reference date, source activities, ROI width, background windows, equilibrium confirmation, and K-40 interference correction before running. These fields may be populated from a text-based PDF, XLS, or XLSX parameter file, but verify every recognized value against the source document.
 7. Run the analysis, then inspect all result tabs: content, specific activity, process detail, sample spectrum, and `E = a × CH + b` calibration plots.
 8. Review correlation `R`, relative deviation, RMS residual, matched points, usable peaks, dead-time information, and warnings. Do not treat `R` near 1 as proof that peak assignment or quantification is correct.
 9. Select Simplified Chinese, Traditional Chinese, English, or French and export PNG, PDF, or Excel. Confirm that exported calibration plots contain both the fitted line and matched points.

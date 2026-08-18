@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from .services.analysis import AnalysisSettings, analyze_batch
 from .services.exporters import export_pdf, export_png, export_xlsx
+from .services.parameter_import import parse_analysis_parameters
 from .services.parsers import inspect_spectrum_metadata, parse_spectrum
 
 
@@ -58,6 +59,15 @@ async def inspect_files(files: list[UploadFile] = File(...)) -> dict[str, list[d
         except (ValueError, OSError) as exc:
             inspected.append({"name": filename, "live_time_s": None, "live_time_source": None, "error": str(exc)})
     return {"files": inspected}
+
+
+@app.post("/api/import-parameters")
+async def import_parameters(file: UploadFile = File(...)) -> dict[str, Any]:
+    filename = file.filename or "parameters.xlsx"
+    try:
+        return parse_analysis_parameters(filename, await file.read())
+    except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/api/analyze")

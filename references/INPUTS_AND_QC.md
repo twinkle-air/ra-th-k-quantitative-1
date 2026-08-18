@@ -36,6 +36,10 @@ If the value cannot be recovered, enter live time manually in seconds. Do not si
 
 The bundled default source is a workflow example derived from the project calibration file. It is valid only for measurements with compatible geometry and detector conditions.
 
+## Parameter-file import
+
+The calibration and analysis panel accepts `.pdf`, `.xls`, and `.xlsx` parameter files. It can recognize calibration-source mass, activity reference date, Ra-226/Th-232/K-40 source activities, ROI half-width, background gap/window width, optional calibration slope/intercept, and explicit equilibrium/interference-correction flags. Only fields that are explicitly recognized are changed; all other current values remain intact. PDF import requires an extractable text layer, so scanned documents must be OCR-processed first. Always compare the populated fields with the source document before analysis.
+
 ## Review checklist
 
 Before accepting a result, check:
