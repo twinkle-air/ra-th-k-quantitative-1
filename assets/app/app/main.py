@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
@@ -34,7 +34,7 @@ async def disable_browser_cache(request, call_next):
 
 class ExportRequest(BaseModel):
     analysis: dict[str, Any]
-    language: str = "zh"
+    language: Literal["zh", "zht", "en", "fr"] = "zh"
 
 
 @app.get("/")

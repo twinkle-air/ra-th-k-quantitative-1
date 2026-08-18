@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>镭钍钾定量分析智能体</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260816-6">
+  <link rel="stylesheet" href="/static/styles.css?v=20260818-1">
 </head>
 <body>
   <header class="topbar">
@@ -51,7 +51,7 @@
       </section>
 
       <section class="panel results" id="resultsPanel">
-        <div class="panel-head results-head"><div><span class="kicker">03</span><h3 data-i18n="resultsTitle">分析结果</h3></div><div class="export-tools"><label><span data-i18n="exportLanguage">导出语言</span><select id="exportLanguage"><option value="zh">简体中文</option><option value="en">English</option></select></label><div class="exports"><button data-format="png" disabled>PNG</button><button data-format="pdf" disabled>PDF</button><button data-format="xlsx" disabled>EXCEL</button></div></div></div>
+        <div class="panel-head results-head"><div><span class="kicker">03</span><h3 data-i18n="resultsTitle">分析结果</h3></div><div class="export-tools"><label><span data-i18n="exportLanguage">导出语言</span><select id="exportLanguage"><option value="zh">简体中文</option><option value="zht">繁體中文</option><option value="en">English</option><option value="fr">Français</option></select></label><div class="exports"><button data-format="png" disabled>PNG</button><button data-format="pdf" disabled>PDF</button><button data-format="xlsx" disabled>EXCEL</button></div></div></div>
         <div class="tabs"><button class="tab active" data-tab="summary" data-i18n="summaryTab">结果总览</button><button class="tab" data-tab="detail" data-i18n="detailTab">过程详表</button><button class="tab sample-charts-tab" data-tab="sampleCharts"><span data-i18n="sampleChartsTab">测试样能谱与拟合</span><em id="sampleChartCount">0</em></button><button class="tab" data-tab="spectrum" data-i18n="standardSpectrumTab">校准源谱线</button></div>
         <div class="tabview active" id="summaryView">
           <section class="result-block"><h4 data-i18n="contentResults">镭、钍、钾含量结果</h4><div class="table-wrap"><table><thead><tr><th data-i18n="spectrumNo">谱线编号</th><th data-i18n="fileName">文件名</th><th>Ra (ppm)</th><th>Th (ppm)</th><th>K (%)</th><th data-i18n="qc">质控状态</th></tr></thead><tbody id="summaryBody"><tr><td colspan="6" class="placeholder" data-i18n="awaiting">导入文件并开始分析后，结果将显示在这里。</td></tr></tbody></table></div></section>
@@ -70,7 +70,7 @@
     </section>
   </main>
 
-  <div class="floating"><button id="languageBtn"><b>文/A</b><span data-i18n="language">语言</span></button><button id="tutorialBtn"><b>?</b><span data-i18n="tutorial">教程</span></button></div>
+  <div class="floating"><div class="language-control"><div class="language-menu" id="languageMenu" hidden><button type="button" data-language="zh">简体中文</button><button type="button" data-language="zht">繁體中文</button><button type="button" data-language="en">English</button><button type="button" data-language="fr">Français</button></div><button id="languageBtn" type="button" aria-haspopup="true" aria-expanded="false"><b>文/A</b><span data-i18n="language">语言</span></button></div><button id="tutorialBtn"><b>?</b><span data-i18n="tutorial">教程</span></button></div>
   <dialog id="tutorialModal"><div class="modal-head"><div><span class="eyebrow" data-i18n="quickGuide">QUICK GUIDE</span><h2 data-i18n="tutorialTitle">使用教程</h2></div><button id="closeTutorial" aria-label="close">×</button></div><div class="tutorial-scroll"><ol>
     <li><b data-i18n="guide1Title">测量前准备</b><p data-i18n="guide1Text"></p></li>
     <li><b data-i18n="guide2Title">选择效率校准源</b><p data-i18n="guide2Text"></p></li>
@@ -81,6 +81,6 @@
     <li><b data-i18n="guide7Title">完成质量核查</b><p data-i18n="guide7Text"></p></li>
     <li><b data-i18n="guide8Title">选择语言并导出</b><p data-i18n="guide8Text"></p></li>
   </ol><div class="modal-help"><b data-i18n="guideTroubleTitle">常见问题</b><p data-i18n="guideTroubleText"></p></div><div class="modal-note" data-i18n="guideNote"></div><div class="modal-contact"><b data-i18n="guideContactTitle">反馈与建议</b><p data-i18n="guideContactText">twinkle-air　邮箱：twinkleair369@gmai.com　或者 twinkle-air@qq.com</p></div></div></dialog>
-  <script src="/static/app.js?v=20260816-6"></script>
+  <script src="/static/app.js?v=20260818-1"></script>
 </body>
 </html>

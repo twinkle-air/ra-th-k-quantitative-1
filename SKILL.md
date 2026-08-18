@@ -1,6 +1,6 @@
 ---
 name: ra-th-k-quantitative-1
-description: Analyze soil Ra-226, Th-232, and K-40 from HPGe gamma spectra with a bundled local web workbench. Use when users need to import .xls, .xlsx, .txt, .csv, or .dat spectra, recover live time, perform energy calibration and local-background peak integration, compare samples with a matched efficiency standard, review calibration/QC evidence, or export bilingual PNG, PDF, and Excel reports.
+description: Analyze soil Ra-226, Th-232, and K-40 from HPGe gamma spectra with a bundled local web workbench. Use when users need to import .xls, .xlsx, .txt, .csv, or .dat spectra, recover live time, perform energy calibration and local-background peak integration, compare samples with a matched efficiency standard, review calibration/QC evidence, or export Simplified Chinese, Traditional Chinese, English, and French PNG, PDF, and Excel reports.
 ---
 
 # Ra–Th–K Quantitative 1
@@ -31,7 +31,7 @@ Treat the directory containing this `SKILL.md` as `SKILL_DIR`. Resolve every rel
 6. Review reference date, source activities, ROI width, background windows, equilibrium confirmation, and K-40 interference correction before running.
 7. Run the analysis, then inspect all result tabs: content, specific activity, process detail, sample spectrum, and `E = a × CH + b` calibration plots.
 8. Review correlation `R`, relative deviation, RMS residual, matched points, usable peaks, dead-time information, and warnings. Do not treat `R` near 1 as proof that peak assignment or quantification is correct.
-9. Select Chinese or English and export PNG, PDF, or Excel. Confirm that exported calibration plots contain both the fitted line and matched points.
+9. Select Simplified Chinese, Traditional Chinese, English, or French and export PNG, PDF, or Excel. Confirm that exported calibration plots contain both the fitted line and matched points.
 
 ## Scientific guardrails
 

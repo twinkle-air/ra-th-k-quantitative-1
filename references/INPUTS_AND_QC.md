@@ -50,7 +50,7 @@ Before accepting a result, check:
 
 ## Export contents
 
-Chinese or English exports are available as PNG, PDF, and Excel. Reports include, as applicable:
+Simplified Chinese, Traditional Chinese, English, and French exports are available as PNG, PDF, and Excel. Reports include, as applicable:
 
 - sample activity concentration and conventional Ra/Th/K content;
 - multi-sample comparison chart;

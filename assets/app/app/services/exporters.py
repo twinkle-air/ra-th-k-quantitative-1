@@ -8,6 +8,68 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
+SUPPORTED_LANGUAGES = {"zh", "zht", "en", "fr"}
+
+_TEXT = {
+    "zh": {
+        "channel": "道址 CH", "energy": "能量 / keV", "fitted_line": "拟合直线", "matched_points": "刻度匹配点",
+        "summary_sheet": "结果总览", "summary_title": "镭、钍、钾含量分析结果总览表", "spectrum": "谱线编号", "file": "文件名", "mass_g": "质量 (g)",
+        "activity_sheet": "比活度", "activity_title": "测试样镭钍钾比活度结果", "sample": "样品", "mass_kg": "质量 / kg", "activity_comparison": "多样品比活度对比",
+        "peak_sheet": "特征峰参考", "analyte": "分析核素", "emitter": "实际发射体", "reference_energy": "参考能量 (keV)", "default_channel": "默认源参考道址",
+        "calibration_sheet": "能量刻度", "calibration_equation": "刻度方程", "correlation": "相关系数 R", "deviation": "偏差 (%)", "matched_count": "匹配点数",
+        "calibration_charts": "能量刻度拟合图", "editable_chart": "可编辑图表", "process_sheet": "过程明细", "observed_channel": "实际峰位道址", "converted_energy": "换算能量 (keV)",
+        "gross": "总计数", "background": "本底计数", "net": "净计数", "net_rate": "净计数率 (cps)", "method_sheet": "方法与质控", "method": "方法", "validity": "适用条件", "machine_record": "完整机器记录",
+        "ra_conversion": "Ra 换算", "th_conversion": "Th 换算", "k_conversion": "K 换算", "content_results": "镭、钍、钾含量结果", "calibration_qc": "能量刻度拟合质控", "calibration_curves": "能量刻度拟合曲线",
+        "peak_analysis": "特征峰数据分析", "analyte_emitter": "分析对象（发射体）", "reference": "参考能量", "observed_short": "实际道址", "converted_short": "换算能量",
+        "note": "注：Ra/Th 由子体峰估计；需满足衰变链平衡及样品—校准源几何/基质匹配。", "report_title": "镭、钍、钾定量分析报告", "traceable_detail": "分析过程与可追溯中间量", "primary_reference": "主要特征峰参考数据",
+        "method_value": "经验证的同几何比较法；K-40 使用 Ra/Th 幂律效率外推", "validity_value": "Ra/Th由子体峰估计；结果有效性依赖衰变链平衡、几何与基质匹配。",
+    },
+    "zht": {
+        "channel": "道址 CH", "energy": "能量 / keV", "fitted_line": "擬合直線", "matched_points": "刻度匹配點",
+        "summary_sheet": "結果總覽", "summary_title": "鐳、釷、鉀含量分析結果總覽表", "spectrum": "譜線編號", "file": "檔案名稱", "mass_g": "質量 (g)",
+        "activity_sheet": "比活度", "activity_title": "測試樣鐳釷鉀比活度結果", "sample": "樣品", "mass_kg": "質量 / kg", "activity_comparison": "多樣品比活度比較",
+        "peak_sheet": "特徵峰參考", "analyte": "分析核素", "emitter": "實際發射體", "reference_energy": "參考能量 (keV)", "default_channel": "預設源參考道址",
+        "calibration_sheet": "能量刻度", "calibration_equation": "刻度方程", "correlation": "相關係數 R", "deviation": "偏差 (%)", "matched_count": "匹配點數",
+        "calibration_charts": "能量刻度擬合圖", "editable_chart": "可編輯圖表", "process_sheet": "過程明細", "observed_channel": "實際峰位道址", "converted_energy": "換算能量 (keV)",
+        "gross": "總計數", "background": "本底計數", "net": "淨計數", "net_rate": "淨計數率 (cps)", "method_sheet": "方法與品管", "method": "方法", "validity": "適用條件", "machine_record": "完整機器紀錄",
+        "ra_conversion": "Ra 換算", "th_conversion": "Th 換算", "k_conversion": "K 換算", "content_results": "鐳、釷、鉀含量結果", "calibration_qc": "能量刻度擬合品管", "calibration_curves": "能量刻度擬合曲線",
+        "peak_analysis": "特徵峰資料分析", "analyte_emitter": "分析對象（發射體）", "reference": "參考能量", "observed_short": "實際道址", "converted_short": "換算能量",
+        "note": "註：Ra/Th 由子體峰估計；需滿足衰變鏈平衡及樣品—校準源幾何/基質匹配。", "report_title": "鐳、釷、鉀定量分析報告", "traceable_detail": "分析過程與可追溯中間量", "primary_reference": "主要特徵峰參考資料",
+        "method_value": "經驗證的同幾何比較法；K-40 使用 Ra/Th 冪律效率外推", "validity_value": "Ra/Th 由子體峰估計；結果有效性依賴衰變鏈平衡、幾何與基質匹配。",
+    },
+    "en": {
+        "channel": "Channel CH", "energy": "Energy / keV", "fitted_line": "Fitted line", "matched_points": "Matched points",
+        "summary_sheet": "Summary", "summary_title": "Ra, Th and K Quantitative Results", "spectrum": "Spectrum", "file": "File", "mass_g": "Mass (g)",
+        "activity_sheet": "Specific Activity", "activity_title": "Sample Ra-Th-K Specific Activity Results", "sample": "Sample", "mass_kg": "Mass / kg", "activity_comparison": "Specific Activity Comparison",
+        "peak_sheet": "Peak Reference", "analyte": "Analyte", "emitter": "Actual emitter", "reference_energy": "Reference energy (keV)", "default_channel": "Default-source channel",
+        "calibration_sheet": "Energy Calibration", "calibration_equation": "Calibration equation", "correlation": "Correlation R", "deviation": "Deviation (%)", "matched_count": "Matched points",
+        "calibration_charts": "Calibration Fit Charts", "editable_chart": "Editable chart", "process_sheet": "Process Detail", "observed_channel": "Observed channel", "converted_energy": "Converted energy (keV)",
+        "gross": "Gross", "background": "Background", "net": "Net", "net_rate": "Net rate (cps)", "method_sheet": "Method & QC", "method": "Method", "validity": "Validity", "machine_record": "Machine record",
+        "ra_conversion": "Ra conversion", "th_conversion": "Th conversion", "k_conversion": "K conversion", "content_results": "Ra, Th and K Content Results", "calibration_qc": "Energy Calibration Fit QC", "calibration_curves": "Energy Calibration Fit Curves",
+        "peak_analysis": "Gamma-line Analysis", "analyte_emitter": "Analyte (emitter)", "reference": "Reference", "observed_short": "Channel", "converted_short": "Converted",
+        "note": "Note: Ra/Th use daughter peaks; chain equilibrium and matched geometry/matrix are required.", "report_title": "Ra, Th and K Quantitative Analysis Report", "traceable_detail": "Traceable Analysis Detail", "primary_reference": "Primary Gamma-line Reference",
+        "method_value": "validated same-geometry comparison; K-40 uses Ra/Th power-law efficiency extrapolation", "validity_value": "Ra/Th are inferred from daughter peaks; validity requires chain equilibrium and matched geometry/matrix.",
+    },
+    "fr": {
+        "channel": "Canal CH", "energy": "Énergie / keV", "fitted_line": "Droite ajustée", "matched_points": "Points appariés",
+        "summary_sheet": "Synthèse", "summary_title": "Résultats quantitatifs Ra, Th et K", "spectrum": "Spectre", "file": "Fichier", "mass_g": "Masse (g)",
+        "activity_sheet": "Activité massique", "activity_title": "Activités massiques Ra–Th–K des échantillons", "sample": "Échantillon", "mass_kg": "Masse / kg", "activity_comparison": "Comparaison des activités massiques",
+        "peak_sheet": "Référence des raies", "analyte": "Analyte", "emitter": "Émetteur réel", "reference_energy": "Énergie de référence (keV)", "default_channel": "Canal de la source intégrée",
+        "calibration_sheet": "Étalonnage en énergie", "calibration_equation": "Équation d’étalonnage", "correlation": "Corrélation R", "deviation": "Écart (%)", "matched_count": "Points appariés",
+        "calibration_charts": "Courbes d’étalonnage", "editable_chart": "Graphique modifiable", "process_sheet": "Détails du traitement", "observed_channel": "Canal observé", "converted_energy": "Énergie convertie (keV)",
+        "gross": "Brut", "background": "Fond", "net": "Net", "net_rate": "Taux net (cps)", "method_sheet": "Méthode et CQ", "method": "Méthode", "validity": "Validité", "machine_record": "Enregistrement machine",
+        "ra_conversion": "Conversion Ra", "th_conversion": "Conversion Th", "k_conversion": "Conversion K", "content_results": "Teneurs en Ra, Th et K", "calibration_qc": "CQ de l’étalonnage en énergie", "calibration_curves": "Courbes d’ajustement en énergie",
+        "peak_analysis": "Analyse des raies gamma", "analyte_emitter": "Analyte (émetteur)", "reference": "Référence", "observed_short": "Canal", "converted_short": "Énergie calculée",
+        "note": "Note : Ra/Th sont estimés par les raies des descendants ; l’équilibre et l’adéquation géométrie/matrice sont requis.", "report_title": "Rapport d’analyse quantitative Ra, Th et K", "traceable_detail": "Détails traçables de l’analyse", "primary_reference": "Référence des principales raies gamma",
+        "method_value": "comparaison validée à géométrie identique ; K-40 utilise une extrapolation d’efficacité en loi de puissance Ra/Th", "validity_value": "Ra/Th sont estimés à partir des descendants ; la validité exige l’équilibre des chaînes et l’adéquation de la géométrie et de la matrice.",
+    },
+}
+
+
+def _tr(language: str, key: str) -> str:
+    if language not in SUPPORTED_LANGUAGES:
+        raise ValueError(f"Unsupported export language: {language}")
+    return _TEXT[language][key]
 
 
 def _number(value: Any, digits: int = 4) -> str:
@@ -46,7 +108,7 @@ def _calibration_plot_data(item: dict[str, Any]) -> tuple[list[tuple[float, floa
     return points, x_min, x_max, slope * x_min + intercept, slope * x_max + intercept
 
 
-def _calibration_fit_image(item: dict[str, Any], zh: bool) -> BytesIO:
+def _calibration_fit_image(item: dict[str, Any], language: str) -> BytesIO:
     """Render a compatibility-first calibration plot for embedding in Excel/WPS."""
     from PIL import Image, ImageDraw, ImageFont
 
@@ -77,12 +139,12 @@ def _calibration_fit_image(item: dict[str, Any], zh: bool) -> BytesIO:
     for channel, energy in points:
         xx, yy = px(channel), py(energy)
         draw.ellipse((xx - 6, yy - 6, xx + 6, yy + 6), fill="#CF7A14", outline="#FFFFFF", width=2)
-    draw.text(((left + right) / 2, height - 18), "道址 CH" if zh else "Channel CH", font=regular, fill="#506873", anchor="mm")
-    draw.text((20, (top + bottom) / 2), "能量 / keV" if zh else "Energy / keV", font=regular, fill="#506873", anchor="lm")
+    draw.text(((left + right) / 2, height - 18), _tr(language, "channel"), font=regular, fill="#506873", anchor="mm")
+    draw.text((20, (top + bottom) / 2), _tr(language, "energy"), font=regular, fill="#506873", anchor="lm")
     draw.line((width - 430, 28, width - 395, 28), fill="#176B70", width=4)
-    draw.text((width - 382, 28), "拟合直线" if zh else "Fitted line", font=regular, fill="#506873", anchor="lm")
+    draw.text((width - 382, 28), _tr(language, "fitted_line"), font=regular, fill="#506873", anchor="lm")
     draw.ellipse((width - 205, 21, width - 191, 35), fill="#CF7A14", outline="#FFFFFF", width=2)
-    draw.text((width - 180, 28), f"{'刻度匹配点' if zh else 'Matched points'} ({len(points)})", font=regular, fill="#506873", anchor="lm")
+    draw.text((width - 180, 28), f"{_tr(language, 'matched_points')} ({len(points)})", font=regular, fill="#506873", anchor="lm")
     stream = BytesIO()
     image.save(stream, "PNG", dpi=(160, 160))
     stream.seek(0)
@@ -95,13 +157,12 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
     from openpyxl.drawing.image import Image as SpreadsheetImage
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
-    zh = language != "en"
+    _tr(language, "summary_title")
     wb = Workbook()
     ws = wb.active
-    ws.title = "结果总览" if zh else "Summary"
-    title = "镭、钍、钾含量分析结果总览表" if zh else "Ra, Th and K Quantitative Results"
-    headers = (["谱线编号", "文件名", "Ra 含量 (ppm)", "Th 含量 (ppm)", "K 含量 (%)", "质量 (g)"]
-               if zh else ["Spectrum", "File", "Ra (ppm)", "Th (ppm)", "K (%)", "Mass (g)"])
+    ws.title = _tr(language, "summary_sheet")
+    title = _tr(language, "summary_title")
+    headers = [_tr(language, "spectrum"), _tr(language, "file"), "Ra (ppm)", "Th (ppm)", "K (%)", _tr(language, "mass_g")]
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
     ws.cell(1, 1, title)
     ws.cell(1, 1).font = Font(size=16, bold=True, color="17324D")
@@ -126,10 +187,9 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
         ws.column_dimensions[chr(64 + index)].width = width
     ws.freeze_panes = "A4"
 
-    activity = wb.create_sheet("比活度" if zh else "Specific Activity")
-    activity_title = "测试样镭钍钾比活度结果" if zh else "Sample Ra-Th-K Specific Activity Results"
-    activity_headers = (["样品", "质量 / kg", "Th-232 / (Bq/kg)", "Ra-226 / (Bq/kg)", "K-40 / (Bq/kg)"]
-                        if zh else ["Sample", "Mass / kg", "Th-232 / (Bq/kg)", "Ra-226 / (Bq/kg)", "K-40 / (Bq/kg)"])
+    activity = wb.create_sheet(_tr(language, "activity_sheet"))
+    activity_title = _tr(language, "activity_title")
+    activity_headers = [_tr(language, "sample"), _tr(language, "mass_kg"), "Th-232 / (Bq/kg)", "Ra-226 / (Bq/kg)", "K-40 / (Bq/kg)"]
     activity.merge_cells(start_row=1, start_column=1, end_row=1, end_column=5)
     activity.cell(1, 1, activity_title)
     activity.cell(1, 1).font = Font(size=16, bold=True, color="17324D")
@@ -155,18 +215,17 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
         chart = BarChart()
         chart.type = "col"
         chart.style = 10
-        chart.title = "多样品比活度对比" if zh else "Specific Activity Comparison"
+        chart.title = _tr(language, "activity_comparison")
         chart.y_axis.title = "Bq/kg"
-        chart.x_axis.title = "样品" if zh else "Sample"
+        chart.x_axis.title = _tr(language, "sample")
         chart.add_data(Reference(activity, min_col=3, max_col=5, min_row=3, max_row=activity.max_row), titles_from_data=True)
         chart.set_categories(Reference(activity, min_col=1, min_row=4, max_row=activity.max_row))
         chart.height = 10
         chart.width = 22
         activity.add_chart(chart, "A10")
 
-    reference = wb.create_sheet("特征峰参考" if zh else "Peak Reference")
-    reference_headers = (["分析核素", "实际发射体", "参考能量 (keV)", "默认源参考道址"]
-                         if zh else ["Analyte", "Actual emitter", "Reference energy (keV)", "Default-source channel"])
+    reference = wb.create_sheet(_tr(language, "peak_sheet"))
+    reference_headers = [_tr(language, "analyte"), _tr(language, "emitter"), _tr(language, "reference_energy"), _tr(language, "default_channel")]
     reference.append(reference_headers)
     for peak in analysis.get("peak_references", []):
         reference.append([_nuclide_label(peak.get("nuclide")), peak.get("emitter"), peak.get("energy_keV"), peak.get("default_reference_channel")])
@@ -176,9 +235,8 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
     for column in "ABCD":
         reference.column_dimensions[column].width = 26
 
-    calibration_sheet = wb.create_sheet("能量刻度" if zh else "Energy Calibration")
-    calibration_headers = (["谱线编号", "文件名", "刻度方程", "相关系数 R", "偏差 (%)", "RMS (keV)", "匹配点数"]
-                           if zh else ["Spectrum", "File", "Calibration equation", "Correlation R", "Deviation (%)", "RMS (keV)", "Matched points"])
+    calibration_sheet = wb.create_sheet(_tr(language, "calibration_sheet"))
+    calibration_headers = [_tr(language, "spectrum"), _tr(language, "file"), _tr(language, "calibration_equation"), _tr(language, "correlation"), _tr(language, "deviation"), "RMS (keV)", _tr(language, "matched_count")]
     calibration_sheet.append(calibration_headers)
     for item in analysis.get("results", []):
         calibration = item.get("calibration", {})
@@ -195,7 +253,7 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
         calibration_sheet.column_dimensions[column].width = width
     calibration_sheet.freeze_panes = "A2"
 
-    calibration_charts = wb.create_sheet("能量刻度拟合图" if zh else "Calibration Fit Charts")
+    calibration_charts = wb.create_sheet(_tr(language, "calibration_charts"))
     calibration_charts.sheet_view.showGridLines = False
     image_streams: list[BytesIO] = []
     for index, item in enumerate(analysis.get("results", [])):
@@ -216,8 +274,8 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
         chart = ScatterChart()
         chart.title = f"{item.get('spectrum_no')}. {item.get('name')}"
         chart.style = 13
-        chart.x_axis.title = "道址 CH" if zh else "Channel CH"
-        chart.y_axis.title = "能量 / keV" if zh else "Energy / keV"
+        chart.x_axis.title = _tr(language, "channel")
+        chart.y_axis.title = _tr(language, "energy")
         chart.height = 10
         chart.width = 22
         chart.visible_cells_only = False
@@ -225,7 +283,7 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
             point_series = Series(
                 Reference(calibration_charts, min_col=data_col + 1, min_row=2, max_row=len(points) + 1),
                 Reference(calibration_charts, min_col=data_col, min_row=2, max_row=len(points) + 1),
-                title="刻度匹配点" if zh else "Matched points",
+                title=_tr(language, "matched_points"),
             )
             point_series.marker.symbol = "circle"
             point_series.graphicalProperties.line.noFill = True
@@ -233,7 +291,7 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
         fit_series = Series(
             Reference(calibration_charts, min_col=data_col + 3, min_row=2, max_row=3),
             Reference(calibration_charts, min_col=data_col + 2, min_row=2, max_row=3),
-            title="拟合直线" if zh else "Fitted line",
+            title=_tr(language, "fitted_line"),
         )
         fit_series.marker.symbol = "none"
         fit_series.graphicalProperties.line.solidFill = "176B70"
@@ -241,25 +299,22 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
         chart.series.append(fit_series)
         calibration = item.get("calibration", {})
         formula = f"E = {_number(calibration.get('slope'), 8)} × CH + {_number(calibration.get('intercept'), 8)} keV"
-        quality = ((f"相关系数 R = {_number(calibration.get('correlation_r'), 8)} / 偏差 = {_number(calibration.get('relative_deviation_percent'), 6)}% / RMS = {_number(calibration.get('rms_keV'), 6)} keV")
-                   if zh else
-                   (f"Correlation R = {_number(calibration.get('correlation_r'), 8)} / Deviation = {_number(calibration.get('relative_deviation_percent'), 6)}% / RMS = {_number(calibration.get('rms_keV'), 6)} keV"))
+        quality = f"{_tr(language, 'correlation')} = {_number(calibration.get('correlation_r'), 8)} / {_tr(language, 'deviation')} = {_number(calibration.get('relative_deviation_percent'), 6)}% / RMS = {_number(calibration.get('rms_keV'), 6)} keV"
         anchor_row = 1 + index * 32
         calibration_charts.cell(anchor_row, 1, formula).font = Font(bold=True, color="17324D")
         calibration_charts.cell(anchor_row + 1, 1, quality).font = Font(color="176B70")
-        image_stream = _calibration_fit_image(item, zh)
+        image_stream = _calibration_fit_image(item, language)
         image_streams.append(image_stream)
         plot_image = SpreadsheetImage(image_stream)
         plot_image.width = 900
         plot_image.height = 360
         calibration_charts.add_image(plot_image, f"A{anchor_row + 2}")
-        calibration_charts.cell(anchor_row, 14, "可编辑图表" if zh else "Editable chart").font = Font(bold=True, color="17324D")
+        calibration_charts.cell(anchor_row, 14, _tr(language, "editable_chart")).font = Font(bold=True, color="17324D")
         calibration_charts.add_chart(chart, f"N{anchor_row + 2}")
     calibration_charts.column_dimensions["A"].width = 100
 
-    detail = wb.create_sheet("过程明细" if zh else "Process Detail")
-    detail_headers = (["谱线编号", "分析核素", "实际发射体", "参考能量 (keV)", "实际峰位道址", "换算能量 (keV)", "总计数", "本底计数", "净计数", "净计数率 (cps)"]
-                      if zh else ["Spectrum", "Analyte", "Actual emitter", "Reference (keV)", "Observed channel", "Converted (keV)", "Gross", "Background", "Net", "Net rate (cps)"])
+    detail = wb.create_sheet(_tr(language, "process_sheet"))
+    detail_headers = [_tr(language, "spectrum"), _tr(language, "analyte"), _tr(language, "emitter"), _tr(language, "reference_energy"), _tr(language, "observed_channel"), _tr(language, "converted_energy"), _tr(language, "gross"), _tr(language, "background"), _tr(language, "net"), _tr(language, "net_rate")]
     detail.append(detail_headers)
     for item in analysis.get("results", []):
         for nuclide, peaks in item.get("peaks", {}).items():
@@ -275,14 +330,14 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
     for col in range(1, len(detail_headers) + 1):
         detail.column_dimensions[chr(64 + col)].width = 20
 
-    meta = wb.create_sheet("方法与质控" if zh else "Method & QC")
+    meta = wb.create_sheet(_tr(language, "method_sheet"))
     method_rows = [
-        ("方法" if zh else "Method", analysis.get("method", "")),
-        ("Ra 换算" if zh else "Ra conversion", "Ra (ppm) = A(Ra-226) / 36600"),
-        ("Th 换算" if zh else "Th conversion", "Th (ppm) = A(Th-232) / 4.056"),
-        ("K 换算" if zh else "K conversion", "K (%) = A(K-40) / 311"),
-        ("适用条件" if zh else "Validity", analysis.get("disclaimer", "")),
-        ("完整机器记录" if zh else "Machine record", json.dumps(analysis.get("constants", {}), ensure_ascii=False)),
+        (_tr(language, "method"), _tr(language, "method_value")),
+        (_tr(language, "ra_conversion"), "Ra (ppm) = A(Ra-226) / 36600"),
+        (_tr(language, "th_conversion"), "Th (ppm) = A(Th-232) / 4.056"),
+        (_tr(language, "k_conversion"), "K (%) = A(K-40) / 311"),
+        (_tr(language, "validity"), _tr(language, "validity_value")),
+        (_tr(language, "machine_record"), json.dumps(analysis.get("constants", {}), ensure_ascii=False)),
     ]
     for row in method_rows:
         meta.append(row)
@@ -301,7 +356,7 @@ def _font_path() -> str:
 def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
     from PIL import Image, ImageDraw, ImageFont
 
-    zh = language != "en"
+    _tr(language, "report_title")
     rows = analysis.get("results", [])
     peak_count = sum(len(peaks) for item in rows for peaks in item.get("peaks", {}).values())
     width, row_h = 1600, 58
@@ -314,7 +369,7 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
     small = ImageFont.truetype(_font_path(), 18)
     bold = ImageFont.truetype(_font_path(), 24)
     title_font = ImageFont.truetype(_font_path(), 40)
-    title = "镭、钍、钾定量分析报告" if zh else "Ra, Th and K Quantitative Analysis Report"
+    title = _tr(language, "report_title")
     draw.text((width / 2, 62), title, font=title_font, fill="#17324D", anchor="mm")
 
     def table(y: int, section_title: str, headers: list[str], values: list[list[Any]], widths: list[int]) -> int:
@@ -341,23 +396,20 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
         return bottom + 34
 
     y = 125
-    content_headers = (["谱线编号", "文件名", "Ra (ppm)", "Th (ppm)", "K (%)"]
-                       if zh else ["Spectrum", "File", "Ra (ppm)", "Th (ppm)", "K (%)"])
+    content_headers = [_tr(language, "spectrum"), _tr(language, "file"), "Ra (ppm)", "Th (ppm)", "K (%)"]
     content_values = [[item.get("spectrum_no"), item.get("name"), _number(item.get("ra_ppm")),
                        _number(item.get("th_ppm")), _number(item.get("k_percent"))] for item in rows]
-    y = table(y, "镭、钍、钾含量结果" if zh else "Ra, Th and K Content Results", content_headers, content_values,
+    y = table(y, _tr(language, "content_results"), content_headers, content_values,
               [170, 530, 280, 280, 280])
-    activity_headers = (["样品", "质量 / kg", "Th-232 / Bq/kg", "Ra-226 / Bq/kg", "K-40 / Bq/kg"]
-                        if zh else ["Sample", "Mass / kg", "Th-232 / Bq/kg", "Ra-226 / Bq/kg", "K-40 / Bq/kg"])
+    activity_headers = [_tr(language, "sample"), _tr(language, "mass_kg"), "Th-232 / Bq/kg", "Ra-226 / Bq/kg", "K-40 / Bq/kg"]
     activity_values = [[item.get("name"), _number(item.get("mass_g", 0) / 1000, 6),
                         _number(item.get("activity_bq_kg", {}).get("Th232"), 7),
                         _number(item.get("activity_bq_kg", {}).get("Ra226"), 7),
                         _number(item.get("activity_bq_kg", {}).get("K40"), 7)] for item in rows]
-    y = table(y, "测试样镭钍钾比活度结果" if zh else "Sample Specific Activity Results", activity_headers,
+    y = table(y, _tr(language, "activity_title"), activity_headers,
               activity_values, [360, 220, 320, 320, 320])
 
-    calibration_headers = (["样品", "刻度方程", "相关系数 R", "偏差 (%)", "RMS / keV"]
-                           if zh else ["Sample", "Calibration equation", "Correlation R", "Deviation (%)", "RMS / keV"])
+    calibration_headers = [_tr(language, "sample"), _tr(language, "calibration_equation"), _tr(language, "correlation"), _tr(language, "deviation"), "RMS / keV"]
     calibration_values = []
     for item in rows:
         calibration = item.get("calibration", {})
@@ -366,11 +418,11 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
             item.get("name"), formula, _number(calibration.get("correlation_r"), 8),
             _number(calibration.get("relative_deviation_percent"), 6), _number(calibration.get("rms_keV"), 6),
         ])
-    y = table(y, "能量刻度拟合质控" if zh else "Energy Calibration Fit QC", calibration_headers,
+    y = table(y, _tr(language, "calibration_qc"), calibration_headers,
               calibration_values, [260, 570, 240, 220, 250])
 
     if rows:
-        draw.text((50, y), "能量刻度拟合曲线" if zh else "Energy Calibration Fit Curves", font=bold, fill="#17324D")
+        draw.text((50, y), _tr(language, "calibration_curves"), font=bold, fill="#17324D")
         y += 46
     for item in rows:
         calibration = item.get("calibration", {})
@@ -386,9 +438,7 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
         px = lambda value: plot_left + (value - x_min) / x_span * (plot_right - plot_left)
         py = lambda value: plot_bottom - (value - y_min) / y_span * (plot_bottom - plot_top)
         formula = f"E = {_number(calibration.get('slope'), 8)} × CH + {_number(calibration.get('intercept'), 8)} keV"
-        quality = ((f"相关系数 R = {_number(calibration.get('correlation_r'), 8)} / 偏差 = {_number(calibration.get('relative_deviation_percent'), 6)}% / RMS = {_number(calibration.get('rms_keV'), 6)} keV")
-                   if zh else
-                   (f"Correlation R = {_number(calibration.get('correlation_r'), 8)} / Deviation = {_number(calibration.get('relative_deviation_percent'), 6)}% / RMS = {_number(calibration.get('rms_keV'), 6)} keV"))
+        quality = f"{_tr(language, 'correlation')} = {_number(calibration.get('correlation_r'), 8)} / {_tr(language, 'deviation')} = {_number(calibration.get('relative_deviation_percent'), 6)}% / RMS = {_number(calibration.get('rms_keV'), 6)} keV"
         draw.text((50, y), f"{item.get('spectrum_no')}. {item.get('name')}", font=bold, fill="#17324D")
         draw.text((420, y + 2), formula, font=small, fill="#176B70")
         draw.text((420, y + 31), quality, font=small, fill="#506873")
@@ -405,12 +455,12 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
         for channel, energy in points:
             xx, yy = px(channel), py(energy)
             draw.ellipse((xx - 6, yy - 6, xx + 6, yy + 6), fill="#CF7A14", outline="#FFFFFF", width=2)
-        draw.text(((plot_left + plot_right) / 2, plot_bottom + 52), "道址 CH" if zh else "Channel CH", font=small, fill="#506873", anchor="mm")
-        draw.text((72, (plot_top + plot_bottom) / 2), "能量 / keV" if zh else "Energy / keV", font=small, fill="#506873", anchor="mm")
+        draw.text(((plot_left + plot_right) / 2, plot_bottom + 52), _tr(language, "channel"), font=small, fill="#506873", anchor="mm")
+        draw.text((72, (plot_top + plot_bottom) / 2), _tr(language, "energy"), font=small, fill="#506873", anchor="mm")
         y += 470
 
     if len(rows) > 1:
-        draw.text((50, y), "多样品比活度对比（Bq/kg）" if zh else "Specific Activity Comparison (Bq/kg)", font=bold, fill="#17324D")
+        draw.text((50, y), f"{_tr(language, 'activity_comparison')} (Bq/kg)", font=bold, fill="#17324D")
         chart_top, chart_bottom, chart_left, chart_right = y + 50, y + 410, 130, 1530
         series = [("Th232", "Th-232", "#3B6B82"), ("Ra226", "Ra-226", "#CF7A14"), ("K40", "K-40", "#3F8F3A")]
         finite = [item.get("activity_bq_kg", {}).get(key) for item in rows for key, _, _ in series]
@@ -436,8 +486,7 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
             draw.text((legend_x + 30, y + 19), label, font=small, fill="#344C58", anchor="lm")
         y += chart_height
 
-    peak_headers = (["样品", "分析对象（发射体）", "参考能量", "实际道址", "换算能量", "总计数", "本底", "净计数"]
-                    if zh else ["Sample", "Analyte (emitter)", "Reference", "Channel", "Converted", "Gross", "Background", "Net"])
+    peak_headers = [_tr(language, "sample"), _tr(language, "analyte_emitter"), _tr(language, "reference"), _tr(language, "observed_short"), _tr(language, "converted_short"), _tr(language, "gross"), _tr(language, "background"), _tr(language, "net")]
     peak_values: list[list[Any]] = []
     for item in rows:
         for nuclide, peaks in item.get("peaks", {}).items():
@@ -445,10 +494,9 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
                 peak_values.append([item.get("name"), f"{_nuclide_label(nuclide)} ({peak.get('emitter')})", _number(peak.get("energy_keV"), 7),
                                     _number(peak.get("center_channel"), 8), _number(peak.get("converted_energy_keV"), 8),
                                     _number(peak.get("gross_counts")), _number(peak.get("background_counts")), _number(peak.get("net_counts"))])
-    y = table(y, "特征峰数据分析" if zh else "Gamma-line Analysis", peak_headers, peak_values,
+    y = table(y, _tr(language, "peak_analysis"), peak_headers, peak_values,
               [190, 260, 180, 180, 180, 170, 170, 170])
-    note = ("注：Ra/Th 由子体峰估计；需满足衰变链平衡及样品—校准源几何/基质匹配。" if zh
-            else "Note: Ra/Th use daughter peaks; chain equilibrium and matched geometry/matrix are required.")
+    note = _tr(language, "note")
     draw.text((50, y + 5), note, font=small, fill="#506873")
     stream = BytesIO()
     image.save(stream, "PNG", dpi=(180, 180))
@@ -466,7 +514,7 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-    zh = language != "en"
+    _tr(language, "summary_title")
     stream = BytesIO()
     font_name = "RTKFont"
     pdfmetrics.registerFont(TTFont(font_name, _font_path(), subfontIndex=0))
@@ -497,16 +545,15 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
         drawing.add(Line(px(x_min), py(fitted_min), px(x_max), py(fitted_max), strokeColor=colors.HexColor("#176B70"), strokeWidth=2.2))
         for channel, energy in points:
             drawing.add(Circle(px(channel), py(energy), 3.7, fillColor=colors.HexColor("#CF7A14"), strokeColor=colors.white, strokeWidth=0.8))
-        drawing.add(String(left + plot_width / 2, 8, "道址 CH" if zh else "Channel CH", textAnchor="middle", fontName=font_name, fontSize=8, fillColor=colors.HexColor("#506873")))
-        drawing.add(String(5, bottom + plot_height / 2, "能量 / keV" if zh else "Energy / keV", fontName=font_name, fontSize=8, fillColor=colors.HexColor("#506873")))
+        drawing.add(String(left + plot_width / 2, 8, _tr(language, "channel"), textAnchor="middle", fontName=font_name, fontSize=8, fillColor=colors.HexColor("#506873")))
+        drawing.add(String(5, bottom + plot_height / 2, _tr(language, "energy"), fontName=font_name, fontSize=8, fillColor=colors.HexColor("#506873")))
         drawing.add(Line(440, 217, 465, 217, strokeColor=colors.HexColor("#176B70"), strokeWidth=2.2))
-        drawing.add(String(471, 213, "拟合直线" if zh else "Fitted line", fontName=font_name, fontSize=8, fillColor=colors.HexColor("#506873")))
+        drawing.add(String(471, 213, _tr(language, "fitted_line"), fontName=font_name, fontSize=8, fillColor=colors.HexColor("#506873")))
         drawing.add(Circle(565, 217, 3.7, fillColor=colors.HexColor("#CF7A14"), strokeColor=colors.white, strokeWidth=0.8))
-        drawing.add(String(574, 213, f"{'刻度匹配点' if zh else 'Matched points'} ({len(points)})", fontName=font_name, fontSize=8, fillColor=colors.HexColor("#506873")))
+        drawing.add(String(574, 213, f"{_tr(language, 'matched_points')} ({len(points)})", fontName=font_name, fontSize=8, fillColor=colors.HexColor("#506873")))
         return drawing
-    title = "镭、钍、钾含量分析结果总览表" if zh else "Ra, Th and K Quantitative Results"
-    headers = (["谱线编号", "文件名", "Ra 含量 (ppm)", "Th 含量 (ppm)", "K 含量 (%)"]
-               if zh else ["Spectrum", "File", "Ra (ppm)", "Th (ppm)", "K (%)"])
+    title = _tr(language, "summary_title")
+    headers = [_tr(language, "spectrum"), _tr(language, "file"), "Ra (ppm)", "Th (ppm)", "K (%)"]
     data = [headers]
     for item in analysis.get("results", []):
         data.append([item.get("spectrum_no"), item.get("name"), _number(item.get("ra_ppm")), _number(item.get("th_ppm")), _number(item.get("k_percent"))])
@@ -518,10 +565,8 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#EAF1EF")]),
         ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
     ]))
-    note = ("Ra/Th 由子体峰估计；结果有效性依赖衰变链平衡、几何与基质匹配。" if zh
-            else "Ra/Th are inferred from daughter peaks; validity requires chain equilibrium and matched geometry/matrix.")
-    activity_headers = (["样品", "质量 / kg", "Th-232 / Bq/kg", "Ra-226 / Bq/kg", "K-40 / Bq/kg"]
-                        if zh else ["Sample", "Mass / kg", "Th-232 / Bq/kg", "Ra-226 / Bq/kg", "K-40 / Bq/kg"])
+    note = _tr(language, "validity_value")
+    activity_headers = [_tr(language, "sample"), _tr(language, "mass_kg"), "Th-232 / Bq/kg", "Ra-226 / Bq/kg", "K-40 / Bq/kg"]
     activity_data = [activity_headers]
     for item in analysis.get("results", []):
         activity_data.append([item.get("name"), _number(item.get("mass_g", 0) / 1000, 6),
@@ -537,7 +582,7 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
         ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
     ]))
     story = [Paragraph(title, title_style), Spacer(1, 7 * mm), table, Spacer(1, 7 * mm),
-             Paragraph("测试样镭钍钾比活度结果" if zh else "Sample Specific Activity Results", title_style),
+             Paragraph(_tr(language, "activity_title"), title_style),
              Spacer(1, 4 * mm), activity_table]
     if len(analysis.get("results", [])) > 1:
         results = analysis["results"]
@@ -567,11 +612,10 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
             legend_x = 235 + index * 105
             chart.add(Rect(legend_x, 215, 12, 9, fillColor=color, strokeColor=None))
             chart.add(String(legend_x + 17, 216, label, fontName=font_name, fontSize=8))
-        story.extend([Spacer(1, 5 * mm), Paragraph("多样品比活度对比" if zh else "Specific Activity Comparison", body_style), chart])
+        story.extend([Spacer(1, 5 * mm), Paragraph(_tr(language, "activity_comparison"), body_style), chart])
     story.extend([Spacer(1, 5 * mm), Paragraph(note, body_style), PageBreak()])
-    story.append(Paragraph("分析过程与可追溯中间量" if zh else "Traceable Analysis Detail", title_style))
-    reference_headers = (["分析核素", "实际发射体", "参考能量 (keV)", "默认源参考道址"]
-                         if zh else ["Analyte", "Actual emitter", "Reference energy (keV)", "Default-source channel"])
+    story.append(Paragraph(_tr(language, "traceable_detail"), title_style))
+    reference_headers = [_tr(language, "analyte"), _tr(language, "emitter"), _tr(language, "reference_energy"), _tr(language, "default_channel")]
     reference_data = [reference_headers] + [[_nuclide_label(peak.get("nuclide")), peak.get("emitter"), peak.get("energy_keV"),
                                              peak.get("default_reference_channel")] for peak in analysis.get("peak_references", [])]
     reference_table = Table(reference_data, colWidths=[42 * mm, 52 * mm, 52 * mm, 55 * mm], repeatRows=1)
@@ -579,18 +623,15 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
                                          ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#D7E8E5")),
                                          ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#8BA1A8")),
                                          ("ALIGN", (0, 0), (-1, -1), "CENTER")]))
-    story.extend([Spacer(1, 4 * mm), Paragraph("主要特征峰参考数据" if zh else "Primary Gamma-line Reference", body_style),
+    story.extend([Spacer(1, 4 * mm), Paragraph(_tr(language, "primary_reference"), body_style),
                   Spacer(1, 2 * mm), reference_table])
     for item in analysis.get("results", []):
         cal = item.get("calibration", {})
         formula = f"E = {_number(cal.get('slope'), 8)} × CH + {_number(cal.get('intercept'), 8)} keV"
-        quality = ((f"相关系数 R = {_number(cal.get('correlation_r'), 8)} / 偏差 = {_number(cal.get('relative_deviation_percent'), 6)}% / RMS = {_number(cal.get('rms_keV'), 6)} keV")
-                   if zh else
-                   (f"Correlation R = {_number(cal.get('correlation_r'), 8)} / Deviation = {_number(cal.get('relative_deviation_percent'), 6)}% / RMS = {_number(cal.get('rms_keV'), 6)} keV"))
+        quality = f"{_tr(language, 'correlation')} = {_number(cal.get('correlation_r'), 8)} / {_tr(language, 'deviation')} = {_number(cal.get('relative_deviation_percent'), 6)}% / RMS = {_number(cal.get('rms_keV'), 6)} keV"
         story.extend([Spacer(1, 4 * mm), Paragraph(f"{item.get('spectrum_no')}. {item.get('name')}　{formula}<br/>{quality}", body_style),
                       Spacer(1, 2 * mm), calibration_drawing(item)])
-        detail_headers = (["分析对象（发射体）", "参考能量 / keV", "实际峰位道址", "换算能量 / keV", "总计数", "本底计数", "净计数", "净计数率 / cps"]
-                          if zh else ["Analyte / emitter", "Ref. keV", "Observed channel", "Converted keV", "Gross", "Background", "Net", "Net cps"])
+        detail_headers = [_tr(language, "analyte_emitter"), _tr(language, "reference_energy"), _tr(language, "observed_channel"), _tr(language, "converted_energy"), _tr(language, "gross"), _tr(language, "background"), _tr(language, "net"), _tr(language, "net_rate")]
         detail = [detail_headers]
         for nuclide, peaks in item.get("peaks", {}).items():
             for peak in peaks:

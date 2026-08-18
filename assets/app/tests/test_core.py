@@ -162,6 +162,44 @@ class CoreTests(unittest.TestCase):
         self.assertTrue(export_png(result).startswith(b"\x89PNG"))
         self.assertTrue(export_pdf(result).startswith(b"%PDF"))
 
+    def test_four_language_ui_and_exports(self):
+        calibration_points = [[100.0, 20.1], [1000.0, 200.1], [5000.0, 1000.1]]
+        result = analyze_batch(
+            synthetic("sample", 1.0), [synthetic("sample", 0.5)], [500.0], AnalysisSettings(),
+            {"calibration": {"points": calibration_points}, "sample": {"points": calibration_points}},
+        )
+        expected = {
+            "zh": ("结果总览", "能量刻度拟合图", "谱线编号"),
+            "zht": ("結果總覽", "能量刻度擬合圖", "譜線編號"),
+            "en": ("Summary", "Calibration Fit Charts", "Spectrum"),
+            "fr": ("Synthèse", "Courbes d’étalonnage", "Spectre"),
+        }
+        for language, (summary_name, charts_name, first_header) in expected.items():
+            with self.subTest(language=language):
+                png = export_png(result, language)
+                pdf = export_pdf(result, language)
+                workbook = load_workbook(BytesIO(export_xlsx(result, language)), read_only=False)
+                self.assertTrue(png.startswith(b"\x89PNG"))
+                self.assertTrue(pdf.startswith(b"%PDF"))
+                self.assertIn(summary_name, workbook.sheetnames)
+                self.assertIn(charts_name, workbook.sheetnames)
+                self.assertEqual(workbook[summary_name]["A3"].value, first_header)
+                self.assertEqual(len(workbook[charts_name]._images), 1)
+                self.assertEqual(len(workbook[charts_name]._charts), 1)
+        for exporter in (export_xlsx, export_png, export_pdf):
+            with self.subTest(exporter=exporter.__name__):
+                with self.assertRaisesRegex(ValueError, "Unsupported export language"):
+                    exporter(result, "de")
+
+        static_root = Path(__file__).resolve().parents[1] / "app" / "static"
+        html = (static_root / "index.html").read_text(encoding="utf-8")
+        script = (static_root / "app.js").read_text(encoding="utf-8")
+        for language in ("zh", "zht", "en", "fr"):
+            self.assertIn(f'value="{language}"', html)
+            self.assertIn(f"data-language=\"{language}\"", html)
+        self.assertIn("const zhtTranslations", script)
+        self.assertIn("const frTranslations", script)
+
 
 if __name__ == "__main__":
     unittest.main()
