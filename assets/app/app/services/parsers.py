@@ -10,8 +10,10 @@ from typing import Iterable
 
 import numpy as np
 
+from .word_documents import read_word_rows
 
-SUPPORTED_EXTENSIONS = {".xls", ".xlsx", ".txt", ".csv", ".dat"}
+
+SUPPORTED_EXTENSIONS = {".xls", ".xlsx", ".txt", ".csv", ".dat", ".doc", ".docx"}
 
 
 @dataclass
@@ -90,6 +92,8 @@ def _read_rows(filename: str, payload: bytes) -> list[list[object]]:
         return _read_xlsx(payload)
     if extension == ".xls":
         return _read_xls(payload)
+    if extension in {".doc", ".docx"}:
+        return read_word_rows(filename, payload)
     return _read_text(payload)
 
 

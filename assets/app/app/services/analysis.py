@@ -48,6 +48,7 @@ EFFICIENCY_LINE_DATA = [
     ("Ra226", 2, 609.312, 0.4610),
     ("Th232", 2, 911.204, 0.2580),
 ]
+EFFICIENCY_CALIBRATION_LINES = EFFICIENCY_LINE_DATA + [("K40", 0, 1460.822, 0.1067)]
 
 
 @dataclass
@@ -124,7 +125,7 @@ def _weighted_activity(
     variances: list[float] = []
     detail: list[dict[str, float]] = []
     for sample, standard in zip(sample_peaks, calibration_peaks):
-        if sample.net_cps <= 0 or standard.net_cps <= 0:
+        if not sample.detected or not standard.detected or sample.net_cps <= 0 or standard.net_cps <= 0:
             continue
         value = calibration_activity_bq * sample.net_cps / standard.net_cps / sample_mass_kg
         relative_variance = (
@@ -174,7 +175,7 @@ def _k40_efficiency_from_ra_th(
             settings.reference_activities_bq[nuclide], HALF_LIFE_YEARS[nuclide],
             settings.reference_date, acquired_at,
         )
-        if peak.net_cps <= 0 or activity <= 0 or probability <= 0:
+        if not peak.detected or peak.net_cps <= 0 or activity <= 0 or probability <= 0:
             continue
         log_energies.append(math.log(energy))
         log_efficiencies.append(math.log(peak.net_cps / (activity * probability)))
@@ -185,6 +186,57 @@ def _k40_efficiency_from_ra_th(
     relative_scatter = float(np.sqrt(np.mean((np.asarray(log_efficiencies) - fitted) ** 2)))
     efficiency = math.exp(float(slope * math.log(1460.822) + intercept))
     return efficiency, relative_scatter
+
+
+def _full_energy_peak_efficiency_calibration(
+    standard_peaks: dict[str, list[PeakArea]],
+    settings: AnalysisSettings,
+    acquired_at: datetime | None,
+) -> dict[str, Any]:
+    """Calculate full-energy-peak detection probability and a log-log fit."""
+    points: list[dict[str, Any]] = []
+    for nuclide, peak_index, energy, emission_probability in EFFICIENCY_CALIBRATION_LINES:
+        peak = standard_peaks[nuclide][peak_index]
+        activity = _decay_correct(
+            settings.reference_activities_bq[nuclide], HALF_LIFE_YEARS[nuclide],
+            settings.reference_date, acquired_at,
+        )
+        net_cps = peak.net_cps
+        if nuclide == "K40" and settings.correct_k_interference:
+            th_peak = standard_peaks["Th232"][2]
+            if th_peak.detected:
+                net_cps -= max(0.0, th_peak.net_cps * (0.0083 / 0.258) * (1459.14 / 911.204) ** -0.8)
+        if not peak.detected or net_cps <= 0 or activity <= 0 or emission_probability <= 0:
+            continue
+        efficiency = net_cps / (activity * emission_probability)
+        uncertainty = peak.standard_uncertainty_cps / (activity * emission_probability)
+        points.append({
+            "nuclide": nuclide,
+            "energy_keV": energy,
+            "emission_probability": emission_probability,
+            "activity_bq_at_measurement": activity,
+            "net_cps": net_cps,
+            "full_energy_peak_efficiency": efficiency,
+            "standard_uncertainty": uncertainty,
+        })
+    fit: dict[str, Any] | None = None
+    if len(points) >= 3:
+        log_energy = np.log([point["energy_keV"] for point in points])
+        log_efficiency = np.log([point["full_energy_peak_efficiency"] for point in points])
+        slope, intercept = np.polyfit(log_energy, log_efficiency, 1)
+        fitted = slope * log_energy + intercept
+        fit = {
+            "model": "ln(epsilon) = intercept + slope * ln(E_keV)",
+            "slope": float(slope),
+            "intercept": float(intercept),
+            "correlation_r": float(np.corrcoef(log_energy, log_efficiency)[0, 1]),
+            "rms_log_residual": float(np.sqrt(np.mean((log_efficiency - fitted) ** 2))),
+        }
+    return {
+        "definition": "epsilon(E) = net_cps / (activity_Bq_at_measurement * gamma_emission_probability)",
+        "points": points,
+        "fit": fit,
+    }
 
 
 def analyze_batch(
@@ -207,6 +259,9 @@ def analyze_batch(
                 settings.roi_half_width_keV, settings.background_gap_keV, settings.background_width_keV,
             ) for energy in energies
         ]
+    efficiency_calibration = _full_energy_peak_efficiency_calibration(
+        standard_peaks, settings, calibration_spectrum.acquired_at,
+    )
 
     results: list[dict[str, Any]] = []
     for index, (sample, mass_g) in enumerate(zip(samples, sample_masses_g), 1):
@@ -261,8 +316,10 @@ def analyze_batch(
             # Smooth power-law efficiency ratio; exponent -0.8 is conservative for coaxial HPGe.
             efficiency_ratio = (1459.14 / 911.204) ** -0.8
             ratio = p_ratio * efficiency_ratio
-            sample_th_911 = sample_peak_map["Th232"][2].net_cps
-            standard_th_911 = standard_peaks["Th232"][2].net_cps
+            sample_th_peak = sample_peak_map["Th232"][2]
+            standard_th_peak = standard_peaks["Th232"][2]
+            sample_th_911 = sample_th_peak.net_cps if sample_th_peak.detected else 0.0
+            standard_th_911 = standard_th_peak.net_cps if standard_th_peak.detected else 0.0
             correction_sample = max(0.0, sample_th_911 * ratio)
             correction_standard = max(0.0, standard_th_911 * ratio)
             sample_k_cps -= correction_sample
@@ -271,7 +328,7 @@ def analyze_batch(
             settings.reference_activities_bq["K40"], HALF_LIFE_YEARS["K40"],
             settings.reference_date, calibration_spectrum.acquired_at,
         )
-        if sample_k_cps > 0 and standard_k_cps > 0:
+        if sample_k.detected and standard_k.detected and sample_k_cps > 0 and standard_k_cps > 0:
             raw_k_activity = current_k * sample_k_cps / standard_k_cps / (mass_g / 1000)
             rel_var = (
                 (sample_k.standard_uncertainty_cps / max(sample_k_cps, 1e-15)) ** 2
@@ -348,6 +405,7 @@ def analyze_batch(
             "reference_date": settings.reference_date,
             "peaks": {key: [_peak_payload(item, key, standard_cal) for item in value] for key, value in standard_peaks.items()},
             "preview": _spectrum_preview(calibration_spectrum),
+            "efficiency_calibration": efficiency_calibration,
         },
         "results": results,
         "constants": {

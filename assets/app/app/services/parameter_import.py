@@ -6,8 +6,10 @@ from pathlib import Path
 import re
 from typing import Any
 
+from .word_documents import read_word_text
 
-SUPPORTED_PARAMETER_EXTENSIONS = {".pdf", ".xls", ".xlsx"}
+
+SUPPORTED_PARAMETER_EXTENSIONS = {".pdf", ".xls", ".xlsx", ".doc", ".docx"}
 MAX_PARAMETER_FILE_SIZE = 20 * 1024 * 1024
 
 
@@ -113,12 +115,17 @@ def _boolean_after(text: str, aliases: str) -> tuple[bool, str] | None:
 def parse_analysis_parameters(filename: str, payload: bytes) -> dict[str, Any]:
     extension = Path(filename).suffix.lower()
     if extension not in SUPPORTED_PARAMETER_EXTENSIONS:
-        raise ValueError("参数文件仅支持 .pdf、.xls 和 .xlsx。")
+        raise ValueError("参数文件仅支持 .pdf、.xls、.xlsx、.doc 和 .docx。")
     if not payload:
         raise ValueError("参数文件为空。")
     if len(payload) > MAX_PARAMETER_FILE_SIZE:
         raise ValueError("参数文件不能超过 20 MB。")
-    raw_text = _pdf_text(payload) if extension == ".pdf" else _excel_text(filename, payload)
+    if extension == ".pdf":
+        raw_text = _pdf_text(payload)
+    elif extension in {".doc", ".docx"}:
+        raw_text = read_word_text(filename, payload)
+    else:
+        raw_text = _excel_text(filename, payload)
     text = _normalize(raw_text)
     values: dict[str, Any] = {}
     sources: dict[str, str] = {}

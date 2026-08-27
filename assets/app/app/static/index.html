@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>镭钍钾定量分析智能体</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260818-1">
+  <link rel="stylesheet" href="/static/styles.css?v=20260826-3">
 </head>
 <body>
   <header class="topbar">
@@ -22,16 +22,16 @@
 
       <section class="grid two">
         <article class="panel">
-          <div class="panel-head"><div><span class="kicker">01</span><h3 data-i18n="filesTitle">导入能谱文件</h3></div><span class="file-types">.XLS · .XLSX · .TXT</span></div>
-          <label class="source-select"><span data-i18n="sourceMode">效率校准源</span><select id="calSourceMode"><option value="default" data-i18n="defaultSourceOption">使用默认校准源</option><option value="upload" data-i18n="uploadSourceOption">上传自定义校准源</option></select></label>
-          <label class="dropzone builtin" id="calDrop"><input id="calFile" type="file" accept=".xls,.xlsx,.txt,.csv,.dat" disabled><span class="upload-icon" id="calIcon">✓</span><b id="calUploadText" data-i18n="defaultSourceReady">已选择默认效率校准源</b><small data-i18n="calHint">要求与样品具有一致的测量几何</small><em id="calName">土壤监测效率校准源.xls</em></label>
-          <label class="dropzone sample" id="sampleDrop"><input id="sampleFiles" type="file" accept=".xls,.xlsx,.txt,.csv,.dat" multiple><span class="upload-icon">＋</span><b data-i18n="sampleUpload">导入一个或多个样品谱线</b><small data-i18n="sampleHint">可多选；每个文件将生成一行结果</small></label>
+          <div class="panel-head"><div><span class="kicker">01</span><h3 data-i18n="filesTitle">导入能谱文件</h3></div><span class="file-types">.XLS · .XLSX · .TXT · .DOC · .DOCX</span></div>
+          <label class="source-select"><span data-i18n="sourceMode">刻度源（效率校准源）</span><select id="calSourceMode"><option value="default" data-i18n="defaultSourceOption">使用默认刻度源</option><option value="upload" data-i18n="uploadSourceOption">上传自定义刻度源</option></select></label>
+          <label class="dropzone builtin" id="calDrop"><input id="calFile" type="file" accept=".xls,.xlsx,.txt,.csv,.dat,.doc,.docx" disabled><span class="upload-icon" id="calIcon">✓</span><b id="calUploadText" data-i18n="defaultSourceReady">已选择默认刻度源</b><small data-i18n="calHint">要求与样品具有一致的测量几何</small><em id="calName">土壤监测效率校准源.xls</em></label>
+          <label class="dropzone sample" id="sampleDrop"><input id="sampleFiles" type="file" accept=".xls,.xlsx,.txt,.csv,.dat,.doc,.docx" multiple><span class="upload-icon">＋</span><b data-i18n="sampleUpload">导入一个或多个样品谱线</b><small data-i18n="sampleHint">可多选；每个文件将生成一行结果</small></label>
           <div id="sampleList" class="sample-list"><p class="empty" data-i18n="sampleEmpty">尚未导入样品</p></div>
         </article>
 
         <article class="panel">
           <div class="panel-head"><div><span class="kicker">02</span><h3 data-i18n="paramsTitle">校准与分析参数</h3></div><button class="ghost" id="resetBtn" data-i18n="reset">恢复默认</button></div>
-          <div class="parameter-import"><input id="parameterFile" type="file" accept=".pdf,.xls,.xlsx" hidden><div><b data-i18n="parameterImportTitle">从文件导入参数</b><small data-i18n="parameterImportHint">支持 PDF、XLS、XLSX；自动识别并填入下方字段</small><span id="parameterImportStatus"></span></div><button type="button" id="parameterImportBtn" data-i18n="parameterImportButton">选择参数文件</button></div>
+          <div class="parameter-import"><input id="parameterFile" type="file" accept=".pdf,.xls,.xlsx,.doc,.docx" hidden><div><b data-i18n="parameterImportTitle">从文件导入参数</b><small data-i18n="parameterImportHint">支持 PDF、Word、XLS、XLSX；自动识别并填入下方字段</small><span id="parameterImportStatus"></span></div><button type="button" id="parameterImportBtn" data-i18n="parameterImportButton">选择参数文件</button></div>
           <div class="form-grid">
             <label><span data-i18n="calMass">校准源质量 (g)</span><input id="calMass" type="number" value="337.76" min="0" step="0.01"></label>
             <label><span data-i18n="refDate">活度参考日期</span><input id="refDate" type="date" value="2015-01-25"></label>
@@ -53,15 +53,16 @@
 
       <section class="panel results" id="resultsPanel">
         <div class="panel-head results-head"><div><span class="kicker">03</span><h3 data-i18n="resultsTitle">分析结果</h3></div><div class="export-tools"><label><span data-i18n="exportLanguage">导出语言</span><select id="exportLanguage"><option value="zh">简体中文</option><option value="zht">繁體中文</option><option value="en">English</option><option value="fr">Français</option></select></label><div class="exports"><button data-format="png" disabled>PNG</button><button data-format="pdf" disabled>PDF</button><button data-format="xlsx" disabled>EXCEL</button></div></div></div>
-        <div class="tabs"><button class="tab active" data-tab="summary" data-i18n="summaryTab">结果总览</button><button class="tab" data-tab="detail" data-i18n="detailTab">过程详表</button><button class="tab sample-charts-tab" data-tab="sampleCharts"><span data-i18n="sampleChartsTab">测试样能谱与拟合</span><em id="sampleChartCount">0</em></button><button class="tab" data-tab="spectrum" data-i18n="standardSpectrumTab">校准源谱线</button></div>
+        <div class="export-destination" id="exportDestination" hidden><span data-i18n="exportLocation">导出位置</span><code id="exportDirectory"></code><button type="button" id="chooseExportDirectory" data-i18n="chooseExportLocation">选择位置</button></div>
+        <div class="tabs"><button class="tab active" data-tab="summary" data-i18n="summaryTab">结果总览</button><button class="tab" data-tab="detail" data-i18n="detailTab">过程详表</button><button class="tab sample-charts-tab" data-tab="sampleCharts"><span data-i18n="sampleChartsTab">测试样能谱与拟合</span><em id="sampleChartCount">0</em></button><button class="tab" data-tab="spectrum" data-i18n="standardSpectrumTab">刻度源能谱与概率刻度</button></div>
         <div class="tabview active" id="summaryView">
           <section class="result-block"><h4 data-i18n="contentResults">镭、钍、钾含量结果</h4><div class="table-wrap"><table><thead><tr><th data-i18n="spectrumNo">谱线编号</th><th data-i18n="fileName">文件名</th><th>Ra (ppm)</th><th>Th (ppm)</th><th>K (%)</th><th data-i18n="qc">质控状态</th></tr></thead><tbody id="summaryBody"><tr><td colspan="6" class="placeholder" data-i18n="awaiting">导入文件并开始分析后，结果将显示在这里。</td></tr></tbody></table></div></section>
           <section class="result-block"><h4 data-i18n="activityResults">测试样镭钍钾比活度结果</h4><div class="table-wrap"><table><thead><tr><th data-i18n="sample">样品</th><th data-i18n="massKg">质量 / kg</th><th>Th-232 / (Bq·kg⁻¹)</th><th>Ra-226 / (Bq·kg⁻¹)</th><th>K-40 / (Bq·kg⁻¹)</th></tr></thead><tbody id="activityBody"><tr><td colspan="5" class="placeholder" data-i18n="awaitingActivity">完成分析后显示比活度结果。</td></tr></tbody></table></div></section>
           <section class="result-block chart-block" id="activityChartBlock" hidden><div class="chart-head"><h4 data-i18n="activityComparison">多样品比活度对比</h4><small data-i18n="activityUnit">单位：Bq·kg⁻¹</small></div><canvas id="activityCanvas" width="1200" height="430"></canvas></section>
         </div>
         <div class="tabview" id="detailView"><div id="detailContent" class="detail-content placeholder" data-i18n="detailEmpty">过程量包括能量刻度、峰位、总计数、本底、净计数及活度换算。</div></div>
-        <div class="tabview" id="sampleChartsView"><div class="chart-head sample-results-head"><div><h4 data-i18n="sampleChartsTitle">测试样能谱与能量刻度拟合</h4><p data-i18n="sampleChartsHint">每个测试样依次显示原始能谱和 E = a × CH + b 拟合图。</p></div><small data-i18n="logScale">纵轴为 log(计数 + 1)</small></div><div id="sampleCharts" class="sample-charts"><p class="placeholder" data-i18n="sampleChartsEmpty">完成分析后显示测试样图表。</p></div></div>
-        <div class="tabview" id="spectrumView"><div class="chart-head"><span data-i18n="calSpectrum">校准源谱线预览</span><small data-i18n="logScale">纵轴为 log(计数 + 1)</small></div><canvas id="spectrumCanvas" width="1200" height="340"></canvas></div>
+        <div class="tabview" id="sampleChartsView"><div class="chart-head sample-results-head"><div><h4 data-i18n="sampleChartsTitle">测试样能谱与能量刻度拟合</h4><p data-i18n="sampleChartsHint">每个测试样依次显示原始能谱和 E = a × CH + b 拟合图。</p></div><small data-i18n="logScale">线性坐标：横轴为道址，纵轴为计数</small></div><div id="sampleCharts" class="sample-charts"><p class="placeholder" data-i18n="sampleChartsEmpty">完成分析后显示测试样图表。</p></div></div>
+        <div class="tabview" id="spectrumView"><section class="standard-chart"><div class="chart-head"><span data-i18n="calSpectrum">刻度源能谱预览</span><small data-i18n="logScale">线性坐标：横轴为道址，纵轴为计数</small></div><canvas id="spectrumCanvas" width="1200" height="340"></canvas></section><section class="standard-chart"><div class="chart-head"><div><h4 data-i18n="probabilityCalibration">概率刻度（全能峰效率）</h4><p data-i18n="probabilityDefinition">ε(E)=净峰计数率÷(测量时刻活度×γ发射概率)</p></div><small data-i18n="logLogScale">横纵轴均为对数刻度</small></div><canvas id="efficiencyCanvas" width="1200" height="420"></canvas><div id="efficiencyInfo" class="efficiency-info"></div></section></div>
       </section>
 
       <section class="panel future">
@@ -82,6 +83,7 @@
     <li><b data-i18n="guide7Title">完成质量核查</b><p data-i18n="guide7Text"></p></li>
     <li><b data-i18n="guide8Title">选择语言并导出</b><p data-i18n="guide8Text"></p></li>
   </ol><div class="modal-help"><b data-i18n="guideTroubleTitle">常见问题</b><p data-i18n="guideTroubleText"></p></div><div class="modal-note" data-i18n="guideNote"></div><div class="modal-contact"><b data-i18n="guideContactTitle">反馈与建议</b><p data-i18n="guideContactText">twinkle-air　邮箱：twinkleair369@gmail.com　或者 twinkle-air@qq.com</p></div></div></dialog>
-  <script src="/static/app.js?v=20260818-1"></script>
+  <dialog id="exportLocationModal" class="export-location-dialog"><div class="modal-head"><div><span class="eyebrow" data-i18n="exportLocation">导出位置</span><h2 data-i18n="exportLocationTitle">修改导出位置</h2></div><button id="closeExportLocation" type="button" aria-label="close">×</button></div><div class="export-location-body"><label><span data-i18n="exportPathLabel">文件夹完整路径</span><input id="exportLocationInput" type="text" autocomplete="off" spellcheck="false"></label><p data-i18n="exportPathHelp">请输入本机已存在且具有写入权限的文件夹路径。</p><div class="export-location-actions"><button id="cancelExportLocation" type="button" class="ghost" data-i18n="cancel">取消</button><button id="confirmExportLocation" type="button" class="primary" data-i18n="confirm">确认</button></div></div></dialog>
+  <script src="/static/app.js?v=20260826-9"></script>
 </body>
 </html>

@@ -65,6 +65,23 @@ _TEXT = {
     },
 }
 
+_DETECTION_TEXT = {
+    "zh": {"critical_level": "判定阈值 Lc (计数)", "detection": "检出判定", "detected": "已检出", "not_detected": "未检出", "background_method": "本底方法"},
+    "zht": {"critical_level": "判定閾值 Lc (計數)", "detection": "檢出判定", "detected": "已檢出", "not_detected": "未檢出", "background_method": "本底方法"},
+    "en": {"critical_level": "Decision threshold Lc (counts)", "detection": "Detection", "detected": "Detected", "not_detected": "Not detected", "background_method": "Background method"},
+    "fr": {"critical_level": "Seuil de décision Lc (comptages)", "detection": "Détection", "detected": "Détecté", "not_detected": "Non détecté", "background_method": "Méthode du fond"},
+}
+for _language, _values in _DETECTION_TEXT.items():
+    _TEXT[_language].update(_values)
+_PROBABILITY_TEXT = {
+    "zh": {"probability_sheet": "刻度源与概率刻度", "probability_title": "概率刻度（全能峰效率）", "standard_spectrum": "刻度源能谱", "count": "计数", "emission_probability": "γ发射概率 Pγ", "activity_measurement": "测量时刻活度 (Bq)", "full_energy_efficiency": "全能峰效率 ε", "efficiency_uncertainty": "效率标准不确定度"},
+    "zht": {"probability_sheet": "刻度源與機率刻度", "probability_title": "機率刻度（全能峰效率）", "standard_spectrum": "刻度源能譜", "count": "計數", "emission_probability": "γ發射機率 Pγ", "activity_measurement": "測量時刻活度 (Bq)", "full_energy_efficiency": "全能峰效率 ε", "efficiency_uncertainty": "效率標準不確定度"},
+    "en": {"probability_sheet": "Standard & Efficiency", "probability_title": "Detection Probability (Full-energy-peak Efficiency)", "standard_spectrum": "Calibration-source Spectrum", "count": "Counts", "emission_probability": "Gamma probability Pγ", "activity_measurement": "Activity at measurement (Bq)", "full_energy_efficiency": "Full-energy efficiency ε", "efficiency_uncertainty": "Efficiency standard uncertainty"},
+    "fr": {"probability_sheet": "Source et efficacité", "probability_title": "Probabilité de détection (efficacité du pic total)", "standard_spectrum": "Spectre de la source", "count": "Comptages", "emission_probability": "Probabilité gamma Pγ", "activity_measurement": "Activité à la mesure (Bq)", "full_energy_efficiency": "Efficacité du pic total ε", "efficiency_uncertainty": "Incertitude-type de l’efficacité"},
+}
+for _language, _values in _PROBABILITY_TEXT.items():
+    _TEXT[_language].update(_values)
+
 
 def _tr(language: str, key: str) -> str:
     if language not in SUPPORTED_LANGUAGES:
@@ -76,6 +93,14 @@ def _number(value: Any, digits: int = 4) -> str:
     if value is None or not isinstance(value, (int, float)) or not math.isfinite(value):
         return "—"
     return f"{value:.{digits}g}"
+
+
+def _calibration_equation(slope: Any, intercept: Any, digits: int = 8, include_unit: bool = True) -> str:
+    """Format a linear calibration without rendering '+ -b'."""
+    sign = "−" if isinstance(intercept, (int, float)) and math.isfinite(intercept) and intercept < 0 else "+"
+    magnitude = abs(intercept) if isinstance(intercept, (int, float)) and math.isfinite(intercept) else intercept
+    unit = " keV" if include_unit else ""
+    return f"E = {_number(slope, digits)} × CH {sign} {_number(magnitude, digits)}{unit}"
 
 
 def _nuclide_label(value: Any) -> str:
@@ -151,6 +176,73 @@ def _calibration_fit_image(item: dict[str, Any], language: str) -> BytesIO:
     return stream
 
 
+def _standard_probability_image(standard: dict[str, Any], language: str) -> BytesIO:
+    """Render the calibration-source spectrum and full-energy efficiency together."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    width, height = 1200, 900
+    image = Image.new("RGB", (width, height), "#FFFFFF")
+    draw = ImageDraw.Draw(image)
+    regular = ImageFont.truetype(_font_path(), 18)
+    small = ImageFont.truetype(_font_path(), 14)
+    bold = ImageFont.truetype(_font_path(), 20)
+    left, right = 85, width - 35
+
+    draw.text((left, 28), _tr(language, "standard_spectrum"), font=bold, fill="#17324D")
+    preview = standard.get("preview", {})
+    channels = preview.get("channels", []) or []
+    counts = preview.get("counts", []) or []
+    if channels and counts:
+        top, bottom = 70, 375
+        x_min, x_max = min(channels), max(channels)
+        y_values = [max(0.0, float(value)) for value in counts]
+        y_max = max(y_values or [1.0])
+        px = lambda value: left + (value - x_min) / max(x_max - x_min, 1.0) * (right - left)
+        py = lambda value: bottom - value / max(y_max, 1.0) * (bottom - top)
+        for tick in range(6):
+            xx = left + (right - left) * tick / 5
+            yy = top + (bottom - top) * tick / 5
+            draw.line((xx, top, xx, bottom), fill="#DFE8E6")
+            draw.line((left, yy, right, yy), fill="#DFE8E6")
+            draw.text((xx, bottom + 18), _number(x_min + (x_max - x_min) * tick / 5, 5), font=small, fill="#627782", anchor="mm")
+            draw.text((left - 8, bottom - (bottom - top) * tick / 5), _number(y_max * tick / 5, 5), font=small, fill="#627782", anchor="rm")
+        points = [(px(x), py(y)) for x, y in zip(channels, y_values)]
+        draw.line(points, fill="#176B70", width=2)
+        draw.text(((left + right) / 2, 400), _tr(language, "channel"), font=small, fill="#506873", anchor="mm")
+        draw.text((20, (top + bottom) / 2), _tr(language, "count"), font=small, fill="#506873", anchor="lm")
+
+    efficiency = standard.get("efficiency_calibration", {})
+    points = efficiency.get("points", []) or []
+    draw.text((left, 438), _tr(language, "probability_title"), font=bold, fill="#17324D")
+    if points:
+        top, bottom = 490, 820
+        lx = [math.log10(point["energy_keV"]) for point in points]
+        ly = [math.log10(point["full_energy_peak_efficiency"]) for point in points]
+        x_min, x_max, y_min, y_max = min(lx), max(lx), min(ly), max(ly)
+        x_span, y_span = max(x_max - x_min, 0.1), max(y_max - y_min, 0.1)
+        px = lambda value: left + (value - x_min) / x_span * (right - left)
+        py = lambda value: bottom - (value - y_min) / y_span * (bottom - top)
+        for tick in range(6):
+            xx, yy = px(x_min + x_span * tick / 5), py(y_min + y_span * tick / 5)
+            draw.line((xx, top, xx, bottom), fill="#DFE8E6")
+            draw.line((left, yy, right, yy), fill="#DFE8E6")
+            draw.text((xx, bottom + 20), _number(10 ** (x_min + x_span * tick / 5), 4), font=small, fill="#627782", anchor="mm")
+            draw.text((left - 8, yy), f"{10 ** (y_min + y_span * tick / 5):.2e}", font=small, fill="#627782", anchor="rm")
+        fit = efficiency.get("fit")
+        if fit:
+            fitted = [(x_min, (fit["intercept"] + fit["slope"] * x_min * math.log(10)) / math.log(10)),
+                      (x_max, (fit["intercept"] + fit["slope"] * x_max * math.log(10)) / math.log(10))]
+            draw.line([(px(x), py(y)) for x, y in fitted], fill="#176B70", width=3)
+        for point, x, y in zip(points, lx, ly):
+            xx, yy = px(x), py(y)
+            draw.ellipse((xx - 6, yy - 6, xx + 6, yy + 6), fill="#CF7A14", outline="#FFFFFF")
+        draw.text(((left + right) / 2, 868), _tr(language, "energy"), font=regular, fill="#506873", anchor="mm")
+    stream = BytesIO()
+    image.save(stream, "PNG", dpi=(160, 160))
+    stream.seek(0)
+    return stream
+
+
 def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
     from openpyxl import Workbook
     from openpyxl.chart import BarChart, Reference, ScatterChart, Series
@@ -159,6 +251,7 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
 
     _tr(language, "summary_title")
     wb = Workbook()
+    image_streams: list[BytesIO] = []
     ws = wb.active
     ws.title = _tr(language, "summary_sheet")
     title = _tr(language, "summary_title")
@@ -235,12 +328,71 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
     for column in "ABCD":
         reference.column_dimensions[column].width = 26
 
+    probability = wb.create_sheet(_tr(language, "probability_sheet"))
+    probability.sheet_view.showGridLines = False
+    probability_headers = [
+        _tr(language, "analyte"), _tr(language, "reference_energy"),
+        _tr(language, "emission_probability"), _tr(language, "activity_measurement"),
+        _tr(language, "net_rate"), _tr(language, "full_energy_efficiency"),
+        _tr(language, "efficiency_uncertainty"),
+    ]
+    probability.append(probability_headers)
+    efficiency = analysis.get("standard", {}).get("efficiency_calibration", {})
+    efficiency_points = efficiency.get("points", []) or []
+    for point in efficiency_points:
+        probability.append([
+            _nuclide_label(point.get("nuclide")), point.get("energy_keV"),
+            point.get("emission_probability"), point.get("activity_bq_at_measurement"),
+            point.get("net_cps"), point.get("full_energy_peak_efficiency"),
+            point.get("standard_uncertainty"),
+        ])
+    for cell in probability[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="176B70")
+    for column, width in zip("ABCDEFG", [18, 24, 24, 26, 22, 24, 28]):
+        probability.column_dimensions[column].width = width
+    probability.freeze_panes = "A2"
+    fit = efficiency.get("fit")
+    fit_row = max(3, len(efficiency_points) + 3)
+    probability.cell(fit_row, 1, "ε(E) = cps / [A(t) × Pγ]").font = Font(bold=True, color="17324D")
+    if fit:
+        fit_text = (
+            f"ln ε = {_number(fit.get('intercept'), 8)} + {_number(fit.get('slope'), 8)} × ln E"
+            f" / R = {_number(fit.get('correlation_r'), 8)}"
+            f" / RMS(ln ε) = {_number(fit.get('rms_log_residual'), 6)}"
+        )
+        probability.cell(fit_row + 1, 1, fit_text).font = Font(color="176B70")
+    if efficiency_points:
+        chart = ScatterChart()
+        chart.title = _tr(language, "probability_title")
+        chart.x_axis.title = _tr(language, "energy")
+        chart.y_axis.title = _tr(language, "full_energy_efficiency")
+        chart.x_axis.scaling.logBase = 10
+        chart.y_axis.scaling.logBase = 10
+        chart.height = 10
+        chart.width = 22
+        series = Series(
+            Reference(probability, min_col=6, min_row=2, max_row=len(efficiency_points) + 1),
+            Reference(probability, min_col=2, min_row=2, max_row=len(efficiency_points) + 1),
+            title=_tr(language, "full_energy_efficiency"),
+        )
+        series.marker.symbol = "circle"
+        series.graphicalProperties.line.noFill = True
+        chart.series.append(series)
+        probability.add_chart(chart, f"I{fit_row + 2}")
+        probability_image_stream = _standard_probability_image(analysis.get("standard", {}), language)
+        image_streams.append(probability_image_stream)
+        probability_image = SpreadsheetImage(probability_image_stream)
+        probability_image.width = 900
+        probability_image.height = 675
+        probability.add_image(probability_image, f"A{fit_row + 3}")
+
     calibration_sheet = wb.create_sheet(_tr(language, "calibration_sheet"))
     calibration_headers = [_tr(language, "spectrum"), _tr(language, "file"), _tr(language, "calibration_equation"), _tr(language, "correlation"), _tr(language, "deviation"), "RMS (keV)", _tr(language, "matched_count")]
     calibration_sheet.append(calibration_headers)
     for item in analysis.get("results", []):
         calibration = item.get("calibration", {})
-        formula = f"E = {_number(calibration.get('slope'), 8)} × CH + {_number(calibration.get('intercept'), 8)} keV"
+        formula = _calibration_equation(calibration.get("slope"), calibration.get("intercept"))
         calibration_sheet.append([
             item.get("spectrum_no"), item.get("name"), formula, calibration.get("correlation_r"),
             calibration.get("relative_deviation_percent"), calibration.get("rms_keV"),
@@ -255,7 +407,6 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
 
     calibration_charts = wb.create_sheet(_tr(language, "calibration_charts"))
     calibration_charts.sheet_view.showGridLines = False
-    image_streams: list[BytesIO] = []
     for index, item in enumerate(analysis.get("results", [])):
         points, x_min, x_max, y_min, y_max = _calibration_plot_data(item)
         data_col = 45 + index * 5
@@ -298,7 +449,7 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
         fit_series.graphicalProperties.line.width = 22000
         chart.series.append(fit_series)
         calibration = item.get("calibration", {})
-        formula = f"E = {_number(calibration.get('slope'), 8)} × CH + {_number(calibration.get('intercept'), 8)} keV"
+        formula = _calibration_equation(calibration.get("slope"), calibration.get("intercept"))
         quality = f"{_tr(language, 'correlation')} = {_number(calibration.get('correlation_r'), 8)} / {_tr(language, 'deviation')} = {_number(calibration.get('relative_deviation_percent'), 6)}% / RMS = {_number(calibration.get('rms_keV'), 6)} keV"
         anchor_row = 1 + index * 32
         calibration_charts.cell(anchor_row, 1, formula).font = Font(bold=True, color="17324D")
@@ -314,7 +465,7 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
     calibration_charts.column_dimensions["A"].width = 100
 
     detail = wb.create_sheet(_tr(language, "process_sheet"))
-    detail_headers = [_tr(language, "spectrum"), _tr(language, "analyte"), _tr(language, "emitter"), _tr(language, "reference_energy"), _tr(language, "observed_channel"), _tr(language, "converted_energy"), _tr(language, "gross"), _tr(language, "background"), _tr(language, "net"), _tr(language, "net_rate")]
+    detail_headers = [_tr(language, "spectrum"), _tr(language, "analyte"), _tr(language, "emitter"), _tr(language, "reference_energy"), _tr(language, "observed_channel"), _tr(language, "converted_energy"), _tr(language, "gross"), _tr(language, "background"), _tr(language, "net"), _tr(language, "net_rate"), _tr(language, "critical_level"), _tr(language, "detection"), _tr(language, "background_method")]
     detail.append(detail_headers)
     for item in analysis.get("results", []):
         for nuclide, peaks in item.get("peaks", {}).items():
@@ -322,7 +473,10 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
                 center = peak.get("center_channel")
                 detail.append([item.get("spectrum_no"), _nuclide_label(nuclide), peak.get("emitter"), peak.get("energy_keV"), center,
                                peak.get("converted_energy_keV"),
-                               peak.get("gross_counts"), peak.get("background_counts"), peak.get("net_counts"), peak.get("net_cps")])
+                               peak.get("gross_counts"), peak.get("background_counts"), peak.get("net_counts"), peak.get("net_cps"),
+                               peak.get("critical_level_counts"),
+                               _tr(language, "detected") if peak.get("detected") else _tr(language, "not_detected"),
+                               peak.get("background_method")])
     for cell in detail[1]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="176B70")
@@ -362,7 +516,8 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
     width, row_h = 1600, 58
     chart_height = 470 if len(rows) > 1 else 0
     fit_charts_height = len(rows) * 500
-    height = max(1000, 150 + (len(rows) + 1) * row_h * 3 + fit_charts_height + chart_height + (peak_count + 1) * row_h + 430)
+    probability_height = 950 if analysis.get("standard", {}).get("efficiency_calibration", {}).get("points") else 0
+    height = max(1000, 150 + (len(rows) + 1) * row_h * 3 + fit_charts_height + probability_height + chart_height + (peak_count + 1) * row_h + 430)
     image = Image.new("RGB", (width, height), "#F7F9F8")
     draw = ImageDraw.Draw(image)
     regular = ImageFont.truetype(_font_path(), 22)
@@ -413,7 +568,7 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
     calibration_values = []
     for item in rows:
         calibration = item.get("calibration", {})
-        formula = f"E = {_number(calibration.get('slope'), 8)} × CH + {_number(calibration.get('intercept'), 8)}"
+        formula = _calibration_equation(calibration.get("slope"), calibration.get("intercept"), include_unit=False)
         calibration_values.append([
             item.get("name"), formula, _number(calibration.get("correlation_r"), 8),
             _number(calibration.get("relative_deviation_percent"), 6), _number(calibration.get("rms_keV"), 6),
@@ -437,7 +592,7 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
         x_span, y_span = x_max - x_min, y_max - y_min
         px = lambda value: plot_left + (value - x_min) / x_span * (plot_right - plot_left)
         py = lambda value: plot_bottom - (value - y_min) / y_span * (plot_bottom - plot_top)
-        formula = f"E = {_number(calibration.get('slope'), 8)} × CH + {_number(calibration.get('intercept'), 8)} keV"
+        formula = _calibration_equation(calibration.get("slope"), calibration.get("intercept"))
         quality = f"{_tr(language, 'correlation')} = {_number(calibration.get('correlation_r'), 8)} / {_tr(language, 'deviation')} = {_number(calibration.get('relative_deviation_percent'), 6)}% / RMS = {_number(calibration.get('rms_keV'), 6)} keV"
         draw.text((50, y), f"{item.get('spectrum_no')}. {item.get('name')}", font=bold, fill="#17324D")
         draw.text((420, y + 2), formula, font=small, fill="#176B70")
@@ -458,6 +613,13 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
         draw.text(((plot_left + plot_right) / 2, plot_bottom + 52), _tr(language, "channel"), font=small, fill="#506873", anchor="mm")
         draw.text((72, (plot_top + plot_bottom) / 2), _tr(language, "energy"), font=small, fill="#506873", anchor="mm")
         y += 470
+
+    if probability_height:
+        probability_stream = _standard_probability_image(analysis.get("standard", {}), language)
+        probability_image = Image.open(probability_stream).convert("RGB")
+        probability_image = probability_image.resize((1200, 900))
+        image.paste(probability_image, ((width - probability_image.width) // 2, y))
+        y += probability_height
 
     if len(rows) > 1:
         draw.text((50, y), f"{_tr(language, 'activity_comparison')} (Bq/kg)", font=bold, fill="#17324D")
@@ -512,6 +674,7 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
     from reportlab.graphics.shapes import Circle, Drawing, Line, Rect, String
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.platypus import Image as ReportImage
     from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
     _tr(language, "summary_title")
@@ -613,7 +776,24 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
             chart.add(Rect(legend_x, 215, 12, 9, fillColor=color, strokeColor=None))
             chart.add(String(legend_x + 17, 216, label, fontName=font_name, fontSize=8))
         story.extend([Spacer(1, 5 * mm), Paragraph(_tr(language, "activity_comparison"), body_style), chart])
-    story.extend([Spacer(1, 5 * mm), Paragraph(note, body_style), PageBreak()])
+    story.extend([Spacer(1, 5 * mm), Paragraph(note, body_style)])
+    efficiency = analysis.get("standard", {}).get("efficiency_calibration", {})
+    if efficiency.get("points"):
+        probability_stream = _standard_probability_image(analysis.get("standard", {}), language)
+        story.extend([
+            PageBreak(), Paragraph(_tr(language, "probability_sheet"), title_style), Spacer(1, 3 * mm),
+            ReportImage(probability_stream, width=200 * mm, height=150 * mm),
+            Spacer(1, 2 * mm), Paragraph("ε(E) = cps / [A(t) × Pγ]", body_style),
+        ])
+        fit = efficiency.get("fit")
+        if fit:
+            story.append(Paragraph(
+                f"ln ε = {_number(fit.get('intercept'), 8)} + {_number(fit.get('slope'), 8)} × ln E"
+                f" / R = {_number(fit.get('correlation_r'), 8)}"
+                f" / RMS(ln ε) = {_number(fit.get('rms_log_residual'), 6)}",
+                body_style,
+            ))
+    story.append(PageBreak())
     story.append(Paragraph(_tr(language, "traceable_detail"), title_style))
     reference_headers = [_tr(language, "analyte"), _tr(language, "emitter"), _tr(language, "reference_energy"), _tr(language, "default_channel")]
     reference_data = [reference_headers] + [[_nuclide_label(peak.get("nuclide")), peak.get("emitter"), peak.get("energy_keV"),
@@ -627,7 +807,7 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
                   Spacer(1, 2 * mm), reference_table])
     for item in analysis.get("results", []):
         cal = item.get("calibration", {})
-        formula = f"E = {_number(cal.get('slope'), 8)} × CH + {_number(cal.get('intercept'), 8)} keV"
+        formula = _calibration_equation(cal.get("slope"), cal.get("intercept"))
         quality = f"{_tr(language, 'correlation')} = {_number(cal.get('correlation_r'), 8)} / {_tr(language, 'deviation')} = {_number(cal.get('relative_deviation_percent'), 6)}% / RMS = {_number(cal.get('rms_keV'), 6)} keV"
         story.extend([Spacer(1, 4 * mm), Paragraph(f"{item.get('spectrum_no')}. {item.get('name')}　{formula}<br/>{quality}", body_style),
                       Spacer(1, 2 * mm), calibration_drawing(item)])

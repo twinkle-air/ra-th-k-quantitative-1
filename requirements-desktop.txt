@@ -1,0 +1,3 @@
+-r assets/app/requirements.txt
+pywebview>=5,<7
+pyinstaller>=6.10,<7

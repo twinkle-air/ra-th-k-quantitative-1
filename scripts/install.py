@@ -47,6 +47,7 @@ def copy_skill(destination: Path, force: bool) -> Path:
             ".runtime",
             "build",
             "dist",
+            "exports",
             "__pycache__",
             "*.egg-info",
             "*.pyc",

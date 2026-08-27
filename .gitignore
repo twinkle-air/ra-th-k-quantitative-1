@@ -10,4 +10,5 @@ Thumbs.db
 .review/
 dist/
 build/
+exports/
 *.egg-info/

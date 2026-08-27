@@ -46,6 +46,9 @@ class PeakArea:
     standard_uncertainty_cps: float
     roi: tuple[int, int]
     background_windows: tuple[tuple[int, int], tuple[int, int]]
+    critical_level_counts: float = 0.0
+    detected: bool = True
+    background_method: str = "adaptive-snippet"
 
 
 def _moving_average(values: np.ndarray, width: int) -> np.ndarray:
@@ -138,6 +141,96 @@ def auto_calibrate(spectrum: Spectrum, tolerance_keV: float = 2.2) -> Calibratio
     return result
 
 
+def _snip_baseline(values: np.ndarray, max_half_width: int) -> np.ndarray:
+    """Statistics-sensitive nonlinear iterative peak clipping (LLS-SNIP)."""
+    original = np.clip(np.asarray(values, dtype=float), 0.0, None)
+    transformed = np.log(np.log(np.sqrt(original + 1.0) + 1.0) + 1.0)
+    work = transformed.copy()
+    max_half_width = min(max(2, int(max_half_width)), max(2, (len(work) - 1) // 2))
+    for half_width in range(max_half_width, 0, -1):
+        previous = work.copy()
+        middle = 0.5 * (previous[:-2 * half_width] + previous[2 * half_width:])
+        work[half_width:-half_width] = np.minimum(previous[half_width:-half_width], middle)
+    baseline = (np.exp(np.exp(work) - 1.0) - 1.0) ** 2 - 1.0
+    return np.clip(baseline, 0.0, None)
+
+
+def _adaptive_background(
+    spectrum: Spectrum, left: int, right: int, gap: int, width: int, half: int,
+) -> tuple[float, float, tuple[tuple[int, int], tuple[int, int]], str]:
+    """Fit a non-negative local continuum after SNIP-assisted sideband cleaning."""
+    n_roi = right - left + 1
+    initial_left = (left - gap - width, left - gap - 1)
+    initial_right = (right + gap + 1, right + gap + width)
+    initial_left_counts = spectrum.counts[initial_left[0]:initial_left[1] + 1]
+    initial_right_counts = spectrum.counts[initial_right[0]:initial_right[1] + 1]
+    initial_counts = np.concatenate([initial_left_counts, initial_right_counts])
+    # At ordinary counting statistics the IAEA two-sideband estimator is
+    # efficient and preserves the validated method. Adapt only where sparse
+    # Poisson data make a fixed narrow window unstable.
+    if float(np.mean(initial_counts)) >= 5.0:
+        x_bg = np.concatenate([
+            spectrum.channels[initial_left[0]:initial_left[1] + 1],
+            spectrum.channels[initial_right[0]:initial_right[1] + 1],
+        ])
+        slope_bg, intercept_bg = np.polyfit(x_bg, initial_counts, 1)
+        x_roi = spectrum.channels[left:right + 1]
+        background = float(np.sum(np.clip(slope_bg * x_roi + intercept_bg, 0.0, None)))
+        variance_background = (n_roi / 2.0) ** 2 * (
+            max(float(np.sum(initial_left_counts)), 1.0) / len(initial_left_counts) ** 2
+            + max(float(np.sum(initial_right_counts)), 1.0) / len(initial_right_counts) ** 2
+        )
+        windows = (
+            (int(spectrum.channels[initial_left[0]]), int(spectrum.channels[initial_left[1]])),
+            (int(spectrum.channels[initial_right[0]]), int(spectrum.channels[initial_right[1]])),
+        )
+        return background, variance_background, windows, "IAEA-linear-sidebands"
+
+    expanded = min(max(width * 3, 12), left - gap, len(spectrum.counts) - right - gap - 1)
+    if expanded < 3:
+        raise ValueError("峰区附近没有足够本底道址。")
+    left_bg = (left - gap - expanded, left - gap - 1)
+    right_bg = (right + gap + 1, right + gap + expanded)
+    local_start, local_stop = left_bg[0], right_bg[1] + 1
+    local_counts = spectrum.counts[local_start:local_stop]
+    baseline = _snip_baseline(local_counts, max(half + gap, width))
+
+    left_indices = np.arange(left_bg[0], left_bg[1] + 1)
+    right_indices = np.arange(right_bg[0], right_bg[1] + 1)
+    side_indices = np.concatenate([left_indices, right_indices])
+    side_counts = spectrum.counts[side_indices]
+    side_baseline = baseline[side_indices - local_start]
+    # Reject only statistically clear positive excursions (neighbouring peaks);
+    # retain downward Poisson fluctuations to avoid an upward-biased net area.
+    # SNIP can sit below sparse Poisson observations. Anchor the rejection
+    # threshold to the observed sideband median and reject only unmistakable
+    # neighbouring peaks, not ordinary upward fluctuations.
+    reference_level = np.maximum(side_baseline, float(np.median(side_counts)))
+    keep = side_counts <= reference_level + 6.0 * np.sqrt(reference_level + 1.0)
+    if int(np.sum(keep)) < 8:
+        keep = np.ones_like(side_counts, dtype=bool)
+    x_fit, y_fit = spectrum.channels[side_indices][keep], side_counts[keep]
+    slope_bg, intercept_bg = np.polyfit(x_fit, y_fit, 1)
+    x_roi = spectrum.channels[left:right + 1]
+    predicted = np.clip(slope_bg * x_roi + intercept_bg, 0.0, None)
+    background = float(np.sum(predicted))
+
+    kept_left = keep[:len(left_indices)]
+    kept_right = keep[len(left_indices):]
+    y_left = spectrum.counts[left_indices][kept_left]
+    y_right = spectrum.counts[right_indices][kept_right]
+    n_left, n_right = max(len(y_left), 1), max(len(y_right), 1)
+    variance_background = (n_roi / 2.0) ** 2 * (
+        max(float(np.sum(y_left)), 1.0) / n_left ** 2
+        + max(float(np.sum(y_right)), 1.0) / n_right ** 2
+    )
+    windows = (
+        (int(spectrum.channels[left_bg[0]]), int(spectrum.channels[left_bg[1]])),
+        (int(spectrum.channels[right_bg[0]]), int(spectrum.channels[right_bg[1]])),
+    )
+    return background, variance_background, windows, "adaptive-SNIP/robust-linear"
+
+
 def integrate_peak(
     spectrum: Spectrum,
     calibration: Calibration,
@@ -152,36 +245,24 @@ def integrate_peak(
     width = max(3, int(round(background_width_keV / calibration.slope)))
     center_index = int(np.argmin(np.abs(spectrum.channels - channel_center)))
     left, right = center_index - half, center_index + half
-    left_bg = (left - gap - width, left - gap - 1)
-    right_bg = (right + gap + 1, right + gap + width)
-    if left_bg[0] < 0 or right_bg[1] >= len(spectrum.counts):
+    if left - gap - width < 0 or right + gap + width >= len(spectrum.counts):
         raise ValueError(f"{energy_keV:.1f} keV 峰区超出谱范围。")
-
-    x_left = spectrum.channels[left_bg[0] : left_bg[1] + 1]
-    y_left = spectrum.counts[left_bg[0] : left_bg[1] + 1]
-    x_right = spectrum.channels[right_bg[0] : right_bg[1] + 1]
-    y_right = spectrum.counts[right_bg[0] : right_bg[1] + 1]
-    x_bg = np.concatenate([x_left, x_right])
-    y_bg = np.concatenate([y_left, y_right])
-    slope_bg, intercept_bg = np.polyfit(x_bg, y_bg, 1)
     x_roi = spectrum.channels[left : right + 1]
     gross = float(np.sum(spectrum.counts[left : right + 1]))
-    background = float(np.sum(slope_bg * x_roi + intercept_bg))
+    background, var_background, background_windows, background_method = _adaptive_background(
+        spectrum, left, right, gap, width, half,
+    )
     net = gross - background
-    net_profile = spectrum.counts[left : right + 1] - (slope_bg * x_roi + intercept_bg)
+    local_background = np.full_like(x_roi, background / len(x_roi), dtype=float)
+    net_profile = spectrum.counts[left : right + 1] - local_background
     positive_profile = np.clip(net_profile, 0.0, None)
     observed_channel = (
         float(np.average(x_roi, weights=positive_profile))
         if float(np.sum(positive_profile)) > 0 else float(spectrum.channels[center_index])
     )
 
-    n_roi = len(x_roi)
-    # Poisson approximation plus uncertainty of the two background means.
-    var_background = (n_roi / 2) ** 2 * (
-        max(float(np.sum(y_left)), 1.0) / len(y_left) ** 2
-        + max(float(np.sum(y_right)), 1.0) / len(y_right) ** 2
-    )
     variance = max(gross, 1.0) + var_background
+    critical_level = 1.645 * math.sqrt(max(var_background, 1.0))
     return PeakArea(
         energy_keV=energy_keV,
         channel=observed_channel,
@@ -191,8 +272,8 @@ def integrate_peak(
         net_cps=net / spectrum.live_time,
         standard_uncertainty_cps=math.sqrt(variance) / spectrum.live_time,
         roi=(int(spectrum.channels[left]), int(spectrum.channels[right])),
-        background_windows=(
-            (int(spectrum.channels[left_bg[0]]), int(spectrum.channels[left_bg[1]])),
-            (int(spectrum.channels[right_bg[0]]), int(spectrum.channels[right_bg[1]])),
-        ),
+        background_windows=background_windows,
+        critical_level_counts=critical_level,
+        detected=net > critical_level,
+        background_method=background_method,
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -18,6 +19,7 @@ from .services.parsers import inspect_spectrum_metadata, parse_spectrum
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 DEFAULT_CALIBRATION_FILE = APP_DIR.parent / "data" / "default_calibration_source.xls"
+PROJECT_EXPORT_DIR = APP_DIR.parents[2] / "exports"
 app = FastAPI(title="Ra-Th-K Spectrum Agent", version="0.1.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -38,6 +40,26 @@ class ExportRequest(BaseModel):
     language: Literal["zh", "zht", "en", "fr"] = "zh"
 
 
+class ExportSaveRequest(ExportRequest):
+    directory: str
+
+
+def _default_export_directory() -> Path:
+    """Use the user's Desktop by default; keep the project folder as fallback."""
+    home = Path.home()
+    for candidate in (home / "Desktop", home / "桌面"):
+        if candidate.is_dir():
+            return candidate
+    PROJECT_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    return PROJECT_EXPORT_DIR
+
+
+def _unique_export_destination(directory: Path, format_name: str) -> Path:
+    """Never overwrite a report that may be open and locked by Windows."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    return directory / f"镭钍钾定量分析结果_{timestamp}.{format_name}"
+
+
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
@@ -46,6 +68,11 @@ def index() -> FileResponse:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/export-directory")
+def export_directory() -> dict[str, str]:
+    return {"directory": str(_default_export_directory())}
 
 
 @app.post("/api/inspect")
@@ -92,7 +119,7 @@ async def analyze(
             calibration_name = calibration.filename or "calibration.txt"
             calibration_data = await calibration.read()
         else:
-            raise ValueError("请选择默认校准源或上传自定义校准源。")
+            raise ValueError("请选择默认刻度源或上传自定义刻度源。")
         standard = parse_spectrum(
             calibration_name, calibration_data,
             live_times.get("calibration"),
@@ -140,3 +167,36 @@ def export(format_name: str, request: ExportRequest) -> Response:
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return Response(data, media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@app.post("/api/export/save/{format_name}")
+def save_export(format_name: str, request: ExportSaveRequest) -> dict[str, Any]:
+    formats = {"xlsx": export_xlsx, "png": export_png, "pdf": export_pdf}
+    if format_name not in formats:
+        raise HTTPException(status_code=404, detail="Unsupported export format")
+    directory = Path(request.directory).expanduser()
+    if not directory.is_absolute() or not directory.is_dir():
+        raise HTTPException(status_code=422, detail="导出位置必须是本机已存在的文件夹。")
+    try:
+        data = formats[format_name](request.analysis, request.language)
+    except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    destination = _unique_export_destination(directory, format_name)
+    fallback = False
+    try:
+        destination.write_bytes(data)
+    except PermissionError:
+        fallback_directory = _default_export_directory()
+        destination = _unique_export_destination(fallback_directory, format_name)
+        try:
+            destination.write_bytes(data)
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"所选目录和备用目录均无法写入：{exc}") from exc
+        directory = fallback_directory
+        fallback = True
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {
+        "path": str(destination), "directory": str(directory),
+        "fallback": fallback, "requested_directory": request.directory,
+    }

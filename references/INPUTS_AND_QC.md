@@ -4,6 +4,7 @@
 
 - Excel: `.xls`, `.xlsx`
 - Text: `.txt`
+- Word: `.docx`; `.doc` (RTF is read directly; binary files require local Word/WPS or LibreOffice conversion)
 - Multiple sample files can be imported in one analysis.
 
 The parser tolerates common layouts with a channel column and a count column, or a single ordered count column. Text files may contain metadata before the count data.
@@ -33,12 +34,13 @@ If the value cannot be recovered, enter live time manually in seconds. Do not si
 - Sample mass in kilograms for each sample.
 - Live time in seconds for every calibration and sample spectrum.
 - Calibration source activity/certificate values appropriate to the source reference date.
+- Gamma emission probabilities for the supported Ra/Th/K calibration lines. The current workflow supplies the adopted line probabilities and shows them explicitly in the probability-calibration result; verify them against the source certificate and the laboratory's approved decay-data library.
 
 The bundled default source is a workflow example derived from the project calibration file. It is valid only for measurements with compatible geometry and detector conditions.
 
 ## Parameter-file import
 
-The calibration and analysis panel accepts `.pdf`, `.xls`, and `.xlsx` parameter files. It can recognize calibration-source mass, activity reference date, Ra-226/Th-232/K-40 source activities, ROI half-width, background gap/window width, optional calibration slope/intercept, and explicit equilibrium/interference-correction flags. Only fields that are explicitly recognized are changed; all other current values remain intact. PDF import requires an extractable text layer, so scanned documents must be OCR-processed first. Always compare the populated fields with the source document before analysis.
+The calibration and analysis panel accepts `.pdf`, `.doc`, `.docx`, `.xls`, and `.xlsx` parameter files. It can recognize calibration-source mass, activity reference date, Ra-226/Th-232/K-40 source activities, ROI half-width, background gap/window width, optional calibration slope/intercept, and explicit equilibrium/interference-correction flags. Only fields that are explicitly recognized are changed; all other current values remain intact. PDF import requires an extractable text layer, so scanned documents must be OCR-processed first. Always compare the populated fields with the source document before analysis.
 
 ## Review checklist
 
@@ -62,5 +64,6 @@ Simplified Chinese, Traditional Chinese, English, and French exports are availab
 - energy calibration equation, `R`, percentage deviation, and RMS;
 - sample spectrum plot;
 - energy-calibration fitted curve and matching points.
+- calibration-source spectrum, per-line gamma emission probability, decay-corrected activity, full-energy-peak efficiency, and log-log probability-calibration fit.
 
 Excel exports include both an embedded rendering of the calibration chart and an editable native Excel chart for compatibility across spreadsheet applications.
