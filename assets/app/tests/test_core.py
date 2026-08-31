@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import math
 from io import BytesIO
 from pathlib import Path
@@ -21,6 +22,9 @@ from app.services.analysis import (
 from app.services.exporters import _calibration_equation, export_pdf, export_png, export_xlsx
 from app.services.parameter_import import parse_analysis_parameters
 from app.services.parsers import Spectrum, inspect_spectrum_metadata, parse_spectrum
+from app.services.report_templates import (
+    example_report_template, inspect_report_template, render_report_template,
+)
 from app.services.spectrum import Calibration, PeakArea, fit_manual_calibration, integrate_peak
 
 
@@ -228,6 +232,77 @@ class CoreTests(unittest.TestCase):
             ))
             self.assertIs(payload["fallback"], False)
             self.assertTrue(Path(payload["path"]).is_file())
+
+    def test_docx_and_fillable_pdf_report_templates(self):
+        result = analyze_batch(
+            synthetic("standard", 1.0),
+            [synthetic("sample-1", 0.5), synthetic("sample-2", 0.7)],
+            [500.0, 420.0], AnalysisSettings(),
+            {"calibration": {"slope": 0.2, "intercept": 0.1},
+             "sample-1": {"slope": 0.2, "intercept": 0.1},
+             "sample-2": {"slope": 0.2, "intercept": 0.1}},
+        )
+        template = example_report_template("zh")
+        inspected = inspect_report_template("lab-template.docx", template)
+        self.assertEqual(inspected["format"], "docx")
+        self.assertTrue(inspected["has_sample_row"])
+        rendered = render_report_template("lab-template.docx", template, result, "zh")
+        self.assertTrue(rendered.startswith(b"PK"))
+        with zipfile.ZipFile(BytesIO(rendered)) as archive:
+            document = archive.read("word/document.xml").decode("utf-8")
+        self.assertIn("sample-1", document)
+        self.assertIn("sample-2", document)
+        self.assertNotIn("{{sample.name}}", document)
+        from app.main import ExportSaveRequest, save_export
+        with tempfile.TemporaryDirectory() as directory:
+            saved = save_export("template", ExportSaveRequest(
+                analysis=result, language="zh", directory=directory,
+                template_name="lab-template.docx",
+                template_base64=base64.b64encode(template).decode("ascii"),
+            ))
+            self.assertEqual(Path(saved["path"]).suffix, ".docx")
+            self.assertTrue(Path(saved["path"]).read_bytes().startswith(b"PK"))
+
+        rtf_template = (
+            r"{\rtf1\ansi \{\{report.title\}\}\par "
+            r"\trowd\cellx3000\cellx6000 \intbl \{\{sample.name\}\}\cell "
+            r"\{\{sample.ra_ppm\}\}\cell\row}"
+        ).encode("ascii")
+        doc_inspected = inspect_report_template("lab-template.doc", rtf_template)
+        self.assertEqual(doc_inspected["format"], "doc")
+        doc_rendered = render_report_template("lab-template.doc", rtf_template, result, "en")
+        self.assertTrue(doc_rendered.startswith(b"{\\rtf"))
+        self.assertEqual(doc_rendered.count(b"sample-1"), 1)
+        self.assertEqual(doc_rendered.count(b"sample-2"), 1)
+        self.assertNotIn(b"sample.name", doc_rendered)
+        with self.assertRaisesRegex(ValueError, "binary Word|二进制 Word"):
+            inspect_report_template("legacy-binary.doc", b"\xd0\xcf\x11\xe0legacy-doc")
+
+        from pypdf import PdfReader
+        from reportlab.pdfgen.canvas import Canvas
+
+        pdf_stream = BytesIO()
+        canvas = Canvas(pdf_stream)
+        canvas.drawString(72, 780, "Ra-Th-K template")
+        canvas.acroForm.textfield(name="report.title", x=72, y=730, width=300, height=24)
+        canvas.acroForm.textfield(name="sample.1.name", x=72, y=680, width=180, height=24)
+        canvas.acroForm.textfield(name="sample.1.ra_ppm", x=270, y=680, width=100, height=24)
+        canvas.save()
+        pdf_template = pdf_stream.getvalue()
+        pdf_inspected = inspect_report_template("lab-form.pdf", pdf_template)
+        self.assertEqual(pdf_inspected["format"], "pdf")
+        self.assertEqual(pdf_inspected["recognized_count"], 3)
+        pdf_rendered = render_report_template("lab-form.pdf", pdf_template, result, "en")
+        self.assertTrue(pdf_rendered.startswith(b"%PDF"))
+        fields = PdfReader(BytesIO(pdf_rendered)).get_fields()
+        self.assertEqual(fields["sample.1.name"].get("/V"), "sample-1")
+
+        with self.assertRaisesRegex(ValueError, "AcroForm"):
+            plain_pdf = BytesIO()
+            plain_canvas = Canvas(plain_pdf)
+            plain_canvas.drawString(72, 780, "plain PDF")
+            plain_canvas.save()
+            inspect_report_template("plain.pdf", plain_pdf.getvalue())
 
     def test_desktop_export_directory(self):
         repository_root = Path(__file__).resolve().parents[3]

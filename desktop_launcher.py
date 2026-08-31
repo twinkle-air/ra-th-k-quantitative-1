@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import base64
 import os
 import socket
 import subprocess
@@ -19,6 +20,7 @@ from typing import Any
 import uvicorn
 from app.main import app
 from app.services.exporters import export_pdf, export_png, export_xlsx
+from app.services.report_templates import render_report_template
 
 
 class DesktopApi:
@@ -47,16 +49,32 @@ class DesktopApi:
                 self.export_directory = candidate
         return str(self.export_directory)
 
-    def save_export(self, format_name: str, language: str, analysis: dict[str, Any]) -> dict[str, str]:
+    def save_export(
+        self,
+        format_name: str,
+        language: str,
+        analysis: dict[str, Any],
+        template_name: str | None = None,
+        template_base64: str | None = None,
+    ) -> dict[str, str]:
         exporters = {"png": export_png, "pdf": export_pdf, "xlsx": export_xlsx}
-        if format_name not in exporters:
+        if format_name not in {*exporters, "template"}:
             raise ValueError("不支持的导出格式。")
         if language not in {"zh", "zht", "en", "fr"}:
             raise ValueError("不支持的导出语言。")
         self.export_directory.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        destination = self.export_directory / f"镭钍钾定量分析结果_{timestamp}.{format_name}"
-        destination.write_bytes(exporters[format_name](analysis, language))
+        if format_name == "template":
+            if not template_name or not template_base64:
+                raise ValueError("请先导入报告模板。")
+            template = base64.b64decode(template_base64, validate=True)
+            suffix = Path(template_name).suffix.lower().lstrip(".")
+            data = render_report_template(template_name, template, analysis, language)
+        else:
+            suffix = format_name
+            data = exporters[format_name](analysis, language)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        destination = self.export_directory / f"镭钍钾定量分析结果_{timestamp}.{suffix}"
+        destination.write_bytes(data)
         return {"path": str(destination), "directory": str(self.export_directory)}
 
 

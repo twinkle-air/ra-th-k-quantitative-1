@@ -1,6 +1,6 @@
 # Ra–Th–K Quantitative 1
 
-> 当前版本：**v1.2.0（2026-08-26）** · 同一 Skill 的增量更新，不是新建项目
+> 当前版本：**v1.3.0（2026-08-31）** · 同一 Skill 的增量更新，不是新建项目
 
 <p align="center">
   <img src="assets/project-icon.png" alt="Ra–Th–K Quantitative 1 图标" width="220">
@@ -11,6 +11,13 @@
 > 本项目是辅助计算与可追溯报告工具，不是经认证的实验室测量系统。使用者仍需对样品制备、标准源溯源、测量几何一致性、衰变链平衡、探测限和不确定度负责。
 
 ![Ra–Th–K Quantitative 1 最新界面](assets/ui-verification.png)
+
+## v1.3.0 更新内容
+
+- 第 4 部分由占位区升级为“报告与扩展”模块，并重新设计模板导入、状态提示、示例下载和模板导出界面；
+- 支持导入 PDF、DOC、DOCX 报告模板：DOCX/RTF 型 DOC 使用 `{{report.*}}`、`{{standard.*}}`、`{{sample.*}}` 占位符，可按样品数复制模板表格行；PDF 使用同名 AcroForm 可填写字段；
+- 新增 DOCX 与可填写 PDF 示例模板，模板检查会报告已识别及未识别字段；旧式二进制 DOC 会明确提示先另存为 DOCX，避免不安全的 Office/WPS 自动调用；
+- 模板报告支持简体中文、繁體中文、English、Français，并沿用当前导出位置及桌面默认目录；原 PNG、PDF、Excel 导出保持不变。
 
 ## v1.2.0 更新内容
 

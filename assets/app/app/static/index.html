@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>镭钍钾定量分析智能体</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260826-3">
+  <link rel="stylesheet" href="/static/styles.css?v=20260831-2">
 </head>
 <body>
   <header class="topbar">
@@ -65,9 +65,16 @@
         <div class="tabview" id="spectrumView"><section class="standard-chart"><div class="chart-head"><span data-i18n="calSpectrum">刻度源能谱预览</span><small data-i18n="logScale">线性坐标：横轴为道址，纵轴为计数</small></div><canvas id="spectrumCanvas" width="1200" height="340"></canvas></section><section class="standard-chart"><div class="chart-head"><div><h4 data-i18n="probabilityCalibration">概率刻度（全能峰效率）</h4><p data-i18n="probabilityDefinition">ε(E)=净峰计数率÷(测量时刻活度×γ发射概率)</p></div><small data-i18n="logLogScale">横纵轴均为对数刻度</small></div><canvas id="efficiencyCanvas" width="1200" height="420"></canvas><div id="efficiencyInfo" class="efficiency-info"></div></section></div>
       </section>
 
-      <section class="panel future">
-        <div><span class="kicker">04</span><h3 data-i18n="futureTitle">扩展功能区</h3><p data-i18n="futureText">为自动寻峰复核、效率曲线拟合、不确定度预算、批次对比和模型插件预留。</p></div>
-        <div class="future-grid"><div>＋<span data-i18n="futurePeak">峰识别插件</span></div><div>＋<span data-i18n="futureUnc">不确定度模块</span></div><div>＋<span data-i18n="futureReport">报告模板</span></div></div>
+      <section class="panel future report-section">
+        <div class="future-intro"><div><span class="kicker">04</span><span class="module-status" data-i18n="moduleEnabled">已启用 1 个模块</span></div><h3 data-i18n="futureTitle">报告与扩展</h3><p data-i18n="futureText">导入实验室报告模板，按模板版式输出本次分析结果；其他专业模块继续预留。</p></div>
+        <article class="report-template-card">
+          <div class="report-template-head"><div><span class="report-icon">▤</span><div><b data-i18n="reportTemplateTitle">报告模板</b><small data-i18n="reportTemplateFormats">PDF / DOC / DOCX</small></div></div><span class="active-chip" data-i18n="available">可用</span></div>
+          <input id="reportTemplateFile" type="file" accept=".pdf,.doc,.docx" hidden>
+          <button type="button" class="template-drop" id="reportTemplateDrop"><span>＋</span><b data-i18n="chooseReportTemplate">导入报告模板</b><small data-i18n="reportTemplateHint">保留模板页眉、页脚、字体与表格样式</small></button>
+          <div class="template-status" id="reportTemplateStatus"><span class="status-dot"></span><div><b data-i18n="noReportTemplate">尚未导入模板</b><small data-i18n="templatePlaceholderHint">DOCX 使用 {{report.*}} / {{sample.*}}；PDF 使用同名表单字段</small></div></div>
+          <div class="template-actions"><a id="downloadExampleTemplate" class="secondary-action" href="/api/report-template/example/zh" download><span data-i18n="downloadDocxExample">DOCX 示例</span></a><a class="secondary-action" href="/api/report-template/example-pdf" download><span data-i18n="downloadPdfExample">PDF 表单示例</span></a><button id="removeReportTemplate" type="button" class="secondary-action" data-i18n="removeTemplate" disabled>移除模板</button><button id="exportTemplateReport" type="button" class="template-primary" disabled><span data-i18n="exportWithTemplate">按模板导出</span><i>→</i></button></div>
+        </article>
+        <aside class="future-reserved"><span class="reserved-label" data-i18n="reservedModules">后续模块</span><div class="future-grid"><div>＋<span data-i18n="futurePeak">峰识别插件</span></div><div>＋<span data-i18n="futureUnc">不确定度模块</span></div></div></aside>
       </section>
     </section>
   </main>
@@ -82,8 +89,9 @@
     <li><b data-i18n="guide6Title">阅读分析结果</b><p data-i18n="guide6Text"></p></li>
     <li><b data-i18n="guide7Title">完成质量核查</b><p data-i18n="guide7Text"></p></li>
     <li><b data-i18n="guide8Title">选择语言并导出</b><p data-i18n="guide8Text"></p></li>
+    <li><b data-i18n="guide9Title">使用报告模板</b><p data-i18n="guide9Text"></p></li>
   </ol><div class="modal-help"><b data-i18n="guideTroubleTitle">常见问题</b><p data-i18n="guideTroubleText"></p></div><div class="modal-note" data-i18n="guideNote"></div><div class="modal-contact"><b data-i18n="guideContactTitle">反馈与建议</b><p data-i18n="guideContactText">twinkle-air　邮箱：twinkleair369@gmail.com　或者 twinkle-air@qq.com</p></div></div></dialog>
   <dialog id="exportLocationModal" class="export-location-dialog"><div class="modal-head"><div><span class="eyebrow" data-i18n="exportLocation">导出位置</span><h2 data-i18n="exportLocationTitle">修改导出位置</h2></div><button id="closeExportLocation" type="button" aria-label="close">×</button></div><div class="export-location-body"><label><span data-i18n="exportPathLabel">文件夹完整路径</span><input id="exportLocationInput" type="text" autocomplete="off" spellcheck="false"></label><p data-i18n="exportPathHelp">请输入本机已存在且具有写入权限的文件夹路径。</p><div class="export-location-actions"><button id="cancelExportLocation" type="button" class="ghost" data-i18n="cancel">取消</button><button id="confirmExportLocation" type="button" class="primary" data-i18n="confirm">确认</button></div></div></dialog>
-  <script src="/static/app.js?v=20260826-9"></script>
+  <script src="/static/app.js?v=20260831-2"></script>
 </body>
 </html>

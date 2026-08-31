@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 from datetime import datetime
 from pathlib import Path
@@ -14,6 +16,12 @@ from .services.analysis import AnalysisSettings, analyze_batch
 from .services.exporters import export_pdf, export_png, export_xlsx
 from .services.parameter_import import parse_analysis_parameters
 from .services.parsers import inspect_spectrum_metadata, parse_spectrum
+from .services.report_templates import (
+    example_pdf_report_template,
+    example_report_template,
+    inspect_report_template,
+    render_report_template,
+)
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -38,6 +46,8 @@ async def disable_browser_cache(request, call_next):
 class ExportRequest(BaseModel):
     analysis: dict[str, Any]
     language: Literal["zh", "zht", "en", "fr"] = "zh"
+    template_name: str | None = None
+    template_base64: str | None = None
 
 
 class ExportSaveRequest(ExportRequest):
@@ -57,7 +67,33 @@ def _default_export_directory() -> Path:
 def _unique_export_destination(directory: Path, format_name: str) -> Path:
     """Never overwrite a report that may be open and locked by Windows."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    return directory / f"镭钍钾定量分析结果_{timestamp}.{format_name}"
+    candidate = directory / f"镭钍钾定量分析结果_{timestamp}.{format_name}"
+    sequence = 1
+    while candidate.exists():
+        candidate = directory / f"镭钍钾定量分析结果_{timestamp}_{sequence}.{format_name}"
+        sequence += 1
+    return candidate
+
+
+def _template_bytes(request: ExportRequest) -> tuple[str, bytes]:
+    if not request.template_name or not request.template_base64:
+        raise ValueError("请先在第 4 部分导入 DOCX 或可填写 PDF 报告模板。")
+    try:
+        content = base64.b64decode(request.template_base64, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise ValueError("报告模板数据无效，请重新导入模板。") from exc
+    return request.template_name, content
+
+
+def _render_export(format_name: str, request: ExportRequest) -> tuple[bytes, str]:
+    exporters = {"xlsx": export_xlsx, "png": export_png, "pdf": export_pdf}
+    if format_name in exporters:
+        return exporters[format_name](request.analysis, request.language), format_name
+    if format_name == "template":
+        filename, template = _template_bytes(request)
+        suffix = Path(filename).suffix.lower().lstrip(".")
+        return render_report_template(filename, template, request.analysis, request.language), suffix
+    raise KeyError(format_name)
 
 
 @app.get("/")
@@ -95,6 +131,34 @@ async def import_parameters(file: UploadFile = File(...)) -> dict[str, Any]:
         return parse_analysis_parameters(filename, await file.read())
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/report-template/inspect")
+async def inspect_template(file: UploadFile = File(...)) -> dict[str, Any]:
+    filename = file.filename or "report-template.docx"
+    try:
+        return inspect_report_template(filename, await file.read())
+    except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/report-template/example/{language}")
+def download_example_template(language: Literal["zh", "zht", "en", "fr"] = "zh") -> Response:
+    data = example_report_template(language)
+    return Response(
+        data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="ra-th-k-report-template.docx"'},
+    )
+
+
+@app.get("/api/report-template/example-pdf")
+def download_example_pdf_template() -> Response:
+    return Response(
+        example_pdf_report_template(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="ra-th-k-fillable-report-template.pdf"'},
+    )
 
 
 @app.post("/api/analyze")
@@ -158,30 +222,33 @@ def export(format_name: str, request: ExportRequest) -> Response:
         "xlsx": (export_xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "rtk-results.xlsx"),
         "png": (export_png, "image/png", "rtk-results.png"),
         "pdf": (export_pdf, "application/pdf", "rtk-results.pdf"),
+        "template": (None, "application/octet-stream", "rtk-template-report"),
     }
     if format_name not in formats:
         raise HTTPException(status_code=404, detail="Unsupported export format")
-    exporter, media_type, filename = formats[format_name]
+    _, media_type, filename = formats[format_name]
     try:
-        data = exporter(request.analysis, request.language)
+        data, suffix = _render_export(format_name, request)
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+    if format_name == "template":
+        media_type = "application/pdf" if suffix == "pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        filename = f"rtk-template-report.{suffix}"
     return Response(data, media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
 @app.post("/api/export/save/{format_name}")
 def save_export(format_name: str, request: ExportSaveRequest) -> dict[str, Any]:
-    formats = {"xlsx": export_xlsx, "png": export_png, "pdf": export_pdf}
-    if format_name not in formats:
+    if format_name not in {"xlsx", "png", "pdf", "template"}:
         raise HTTPException(status_code=404, detail="Unsupported export format")
     directory = Path(request.directory).expanduser()
     if not directory.is_absolute() or not directory.is_dir():
         raise HTTPException(status_code=422, detail="导出位置必须是本机已存在的文件夹。")
     try:
-        data = formats[format_name](request.analysis, request.language)
+        data, suffix = _render_export(format_name, request)
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    destination = _unique_export_destination(directory, format_name)
+    destination = _unique_export_destination(directory, suffix)
     fallback = False
     try:
         destination.write_bytes(data)
