@@ -15,7 +15,7 @@ Treat the directory containing this `SKILL.md` as `SKILL_DIR`. Resolve every rel
 
 - To launch the visual workbench, run `python scripts/start_app.py`. If dependencies are missing, run `python scripts/start_app.py --install` once, then open `http://127.0.0.1:8000/`.
 - To verify an installation or modification, run `python scripts/verify.py`.
-- To install this Skill into supported agents, run `python scripts/install.py --tool <codex|claude|workbuddy|codebuddy|all> --scope <user|project>`.
+- To install this Skill into supported agents, run `python scripts/install.py --tool <codex|claude|workbuddy|codebuddy|qoder|zcode|deepseek-harness|all> --scope <user|project>`. `deepseek` and `harness` are accepted aliases for `deepseek-harness`.
 - To understand input fields or QC, read [references/INPUTS_AND_QC.md](references/INPUTS_AND_QC.md).
 - To interpret the calculations and scientific limits, read [references/METHOD.md](references/METHOD.md).
 - To diagnose startup, parsing, chart, or export failures, read [references/TROUBLESHOOTING.md](references/TROUBLESHOOTING.md).

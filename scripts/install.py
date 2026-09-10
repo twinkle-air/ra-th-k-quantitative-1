@@ -16,12 +16,24 @@ USER_ROOTS = {
     "claude": Path.home() / ".claude" / "skills",
     "workbuddy": Path.home() / ".workbuddy" / "skills",
     "codebuddy": Path.home() / ".codebuddy" / "skills",
+    "qoder": Path.home() / ".qoder" / "skills",
+    "zcode": Path.home() / ".zcode" / "skills",
+    "deepseek-harness": Path.home() / ".dsh" / "skills",
 }
 PROJECT_ROOTS = {
     "codex": Path(".agents") / "skills",
     "claude": Path(".claude") / "skills",
     "workbuddy": Path(".workbuddy") / "skills",
     "codebuddy": Path(".codebuddy") / "skills",
+    "qoder": Path(".qoder") / "skills",
+    # ZCode supports project-scoped imports from external Agent roots.
+    "zcode": Path(".agents") / "skills",
+    "deepseek-harness": Path(".dsh") / "skills",
+}
+
+TOOL_ALIASES = {
+    "deepseek": "deepseek-harness",
+    "harness": "deepseek-harness",
 }
 
 
@@ -59,16 +71,22 @@ def copy_skill(destination: Path, force: bool) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install Ra–Th–K Quantitative 1 into an Agent Skills directory.")
-    parser.add_argument("--tool", choices=[*USER_ROOTS, "all"], default="all")
+    parser.add_argument("--tool", choices=[*USER_ROOTS, *TOOL_ALIASES, "all"], default="all")
     parser.add_argument("--scope", choices=["user", "project"], default="user")
     parser.add_argument("--project-root", type=Path, default=Path.cwd())
     parser.add_argument("--force", action="store_true", help="Back up and replace an existing installation.")
     args = parser.parse_args()
-    tools = list(USER_ROOTS) if args.tool == "all" else [args.tool]
+    selected_tool = TOOL_ALIASES.get(args.tool, args.tool)
+    tools = list(USER_ROOTS) if selected_tool == "all" else [selected_tool]
     installed: list[Path] = []
+    seen_destinations: set[Path] = set()
     for tool in tools:
         base = USER_ROOTS[tool] if args.scope == "user" else args.project_root.resolve() / PROJECT_ROOTS[tool]
-        installed.append(copy_skill(base / SKILL_NAME, args.force))
+        destination = (base / SKILL_NAME).resolve()
+        if destination in seen_destinations:
+            continue
+        seen_destinations.add(destination)
+        installed.append(copy_skill(destination, args.force))
     for path in installed:
         print(f"Installed: {path}")
     print("Restart or reload the Agent if the Skill does not appear immediately.")

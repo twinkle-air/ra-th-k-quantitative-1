@@ -1,16 +1,24 @@
 # Ra–Th–K Quantitative 1
 
-> 当前版本：**v1.3.0（2026-08-31）** · 同一 Skill 的增量更新，不是新建项目
+> 当前版本：**v1.4.0（2026-09-10）** · 同一 Skill 的增量更新，不是新建项目
 
 <p align="center">
   <img src="assets/project-icon.png" alt="Ra–Th–K Quantitative 1 图标" width="220">
 </p>
 
-面向土壤高纯锗（HPGe）γ 能谱的镭-钍-钾定量分析 Agent Skill。它把谱线解析、活时间读取、能量刻度、特征峰积分、效率标准源相对测量、比活度/含量计算、质量核查和四语言报告导出整合在一个可离线运行的本地可视化工作台中。既可被 Codex、Claude Code、WorkBuddy 等 Agent 调用，也可不借助 Agent，直接在浏览器中分析和导出数据。
+面向土壤高纯锗（HPGe）γ 能谱的镭-钍-钾定量分析 Agent Skill。它把谱线解析、活时间读取、能量刻度、特征峰积分、效率标准源相对测量、比活度/含量计算、质量核查和四语言报告导出整合在一个可离线运行的本地可视化工作台中。既可被 Codex、Claude Code、WorkBuddy、Qoder、ZCode、DeepSeek Harness 等 Agent 调用，也可不借助 Agent，直接在浏览器中分析和导出数据。
 
 > 本项目是辅助计算与可追溯报告工具，不是经认证的实验室测量系统。使用者仍需对样品制备、标准源溯源、测量几何一致性、衰变链平衡、探测限和不确定度负责。
 
 ![Ra–Th–K Quantitative 1 最新界面](assets/ui-verification.png)
+
+## v1.4.0 更新内容
+
+- 新增 Qoder、ZCode 与 DeepSeek Harness 兼容安装，保留 Codex、Claude Code、WorkBuddy 和 CodeBuddy 支持；
+- 安装器新增 `qoder`、`zcode`、`deepseek-harness` 目标，并兼容 `deepseek`、`harness` 两个参数别名；
+- 支持 Qoder 的用户级和项目级 Skills 目录、ZCode 的用户级目录及项目导入流程、DeepSeek Harness 的 `.dsh/skills` 目录；
+- 修正 `--tool all` 中多个工具共享安装目录时的重复写入问题，并补充各工具刷新、启用和调用说明；
+- 分析算法、可视化界面、四语言导出、报告模板和桌面默认导出位置均保持 v1.3.0 行为不变。
 
 ## v1.3.0 更新内容
 
@@ -65,7 +73,7 @@ cd ra-th-k-quantitative-1
 
 ### 2. 安装到 Agent 工具
 
-一次安装到 Codex、Claude Code、WorkBuddy 和 CodeBuddy 的用户级目录：
+一次安装到 Codex、Claude Code、WorkBuddy、CodeBuddy、Qoder、ZCode 和 DeepSeek Harness 的用户级目录：
 
 ```bash
 python scripts/install.py --tool all --scope user
@@ -78,6 +86,9 @@ python scripts/install.py --tool codex --scope user
 python scripts/install.py --tool claude --scope user
 python scripts/install.py --tool workbuddy --scope user
 python scripts/install.py --tool codebuddy --scope user
+python scripts/install.py --tool qoder --scope user
+python scripts/install.py --tool zcode --scope user
+python scripts/install.py --tool deepseek-harness --scope user
 ```
 
 项目级安装示例：
@@ -125,8 +136,11 @@ python scripts/start_app.py
 | Claude Code | `~/.claude/skills/ra-th-k-quantitative-1` | `.claude/skills/ra-th-k-quantitative-1` | `/ra-th-k-quantitative-1`，或直接描述分析任务 |
 | WorkBuddy | `~/.workbuddy/skills/ra-th-k-quantitative-1` | `.workbuddy/skills/ra-th-k-quantitative-1` | 要求 Agent 使用该 Skill |
 | CodeBuddy | `~/.codebuddy/skills/ra-th-k-quantitative-1` | `.codebuddy/skills/ra-th-k-quantitative-1` | 要求 Agent 使用该 Skill |
+| Qoder | `~/.qoder/skills/ra-th-k-quantitative-1` | `.qoder/skills/ra-th-k-quantitative-1` | `/ra-th-k-quantitative-1` 或直接描述任务 |
+| ZCode | `~/.zcode/skills/ra-th-k-quantitative-1` | 安装到 `.agents/skills/ra-th-k-quantitative-1` 后在设置中导入当前项目 | `$ra-th-k-quantitative-1` |
+| DeepSeek Harness | `~/.dsh/skills/ra-th-k-quantitative-1` | `.dsh/skills/ra-th-k-quantitative-1` | 要求 Harness 使用该 Skill |
 
-不同产品版本的自动发现行为可能变化；若安装后未出现，请重启工具或新建会话，并明确指定 Skill。Codex 和 Claude Code 的路径与调用方式分别参见其官方 [Codex Skills 文档](https://learn.chatgpt.com/docs/build-skills) 和 [Claude Code Skills 文档](https://code.claude.com/docs/en/skills)。
+不同产品版本的自动发现行为可能变化；若安装后未出现，请重启工具或新建会话，并明确指定 Skill。Qoder CLI 可运行 `/skills reload`；ZCode 应在“设置 → Skills”中刷新并启用，项目级安装需通过其导入功能选择 `.agents/skills` 中的条目；DeepSeek Harness 部署需启用本地 Skill provider/composition。详细路径见 [兼容性说明](references/PORTABILITY.md)。
 
 ## 实际使用步骤
 
