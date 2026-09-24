@@ -1,0 +1,50 @@
+{
+  "dataset_id": "rtk-workflow-adopted-data-1",
+  "version": "1.1.0",
+  "status": "workflow-adopted-not-certified-library",
+  "scope": "Ra-226 and Th-232 daughter lines plus K-40 used by this Skill",
+  "sources": [
+    "GB/T 11713-2015 (legally obtained copy required)",
+    "GB/T 11743-2013 (legally obtained copy required)",
+    "IAEA and NIST gamma-spectrometry guidance listed in references/METHOD.md"
+  ],
+  "value_provenance": {
+    "status": "legacy_project_adopted_values_pending_line_by_line_verification",
+    "warning": "These links identify records to check, not proof that every numeric value below matches their current evaluation. Do not call this a certified nuclear-data library.",
+    "checked_on": "2026-09-23",
+    "half_life_years.Ra226": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3, live database", "exact_value_verified": false},
+    "half_life_years.Th232": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3, live database", "exact_value_verified": false},
+    "half_life_years.K40": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.bipm.org/documents/d/guest/k-40_report", "source_version": "DDEP K-40 evaluation, May 2025", "exact_value_verified": false, "known_difference": "project uses 1.248e9 y; 2025 DDEP lists 1.2522e9 y"},
+    "activity_conversion.ra226_bq_kg_per_ppm": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3 plus isotope abundance and atomic mass", "exact_value_verified": false},
+    "activity_conversion.th232_bq_kg_per_ppm": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3 plus isotope abundance and atomic mass", "exact_value_verified": false},
+    "activity_conversion.k40_bq_kg_per_percent_k": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.bipm.org/documents/d/guest/k-40_report", "source_version": "DDEP K-40 evaluation, May 2025, plus natural abundance", "exact_value_verified": false},
+    "gamma_lines.Th232.Pb-212.238.632": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3, Pb-212 record", "exact_value_verified": false},
+    "gamma_lines.Ra226.Pb-214.295.224": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.lnhb.fr/nuclides/Pb-214_tables.pdf", "source_version": "LNHB Pb-214 evaluation, online PDF", "exact_value_verified": false},
+    "gamma_lines.Ra226.Pb-214.351.932": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.lnhb.fr/nuclides/Pb-214_tables.pdf", "source_version": "LNHB Pb-214 evaluation, online PDF", "exact_value_verified": false},
+    "gamma_lines.Th232.Tl-208.583.187": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3, Tl-208 record", "exact_value_verified": false},
+    "gamma_lines.Ra226.Bi-214.609.312": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3, Bi-214 record", "exact_value_verified": false},
+    "gamma_lines.Th232.Ac-228.911.204": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3, Ac-228 record", "exact_value_verified": false},
+    "gamma_lines.K40.K-40.1460.822": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.bipm.org/documents/d/guest/k-40_report", "source_version": "DDEP K-40 evaluation, May 2025", "exact_value_verified": false, "known_difference": "project emission probability 0.1067 differs from 2025 DDEP approximately 0.1034"},
+    "gamma_lines.Th232.Ac-228.1459.14": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3, Ac-228 record", "exact_value_verified": false}
+  },
+  "half_life_years": {
+    "Ra226": 1600.0,
+    "Th232": 14050000000.0,
+    "K40": 1248000000.0
+  },
+  "activity_conversion": {
+    "ra226_bq_kg_per_ppm": 36600.0,
+    "th232_bq_kg_per_ppm": 4.056,
+    "k40_bq_kg_per_percent_k": 311.0
+  },
+  "gamma_lines": [
+    {"target": "Th232", "emitter": "Pb-212", "energy_keV": 238.632, "emission_probability": 0.4360},
+    {"target": "Ra226", "emitter": "Pb-214", "energy_keV": 295.224, "emission_probability": 0.1842},
+    {"target": "Ra226", "emitter": "Pb-214", "energy_keV": 351.932, "emission_probability": 0.3560},
+    {"target": "Th232", "emitter": "Tl-208", "energy_keV": 583.187, "emission_probability": 0.8450, "branch_factor": 0.3590},
+    {"target": "Ra226", "emitter": "Bi-214", "energy_keV": 609.312, "emission_probability": 0.4610},
+    {"target": "Th232", "emitter": "Ac-228", "energy_keV": 911.204, "emission_probability": 0.2580},
+    {"target": "K40", "emitter": "K-40", "energy_keV": 1460.822, "emission_probability": 0.1067},
+    {"target": "Th232", "emitter": "Ac-228", "energy_keV": 1459.14, "emission_probability": 0.0083, "role": "K-40 interference correction"}
+  ]
+}

@@ -47,6 +47,10 @@ SAMPLE_TOKENS = {
     "sample.ra_bq_kg",
     "sample.th_bq_kg",
     "sample.k_bq_kg",
+    "sample.ra_estimated_bq_kg",
+    "sample.th_estimated_bq_kg",
+    "sample.k_estimated_bq_kg",
+    "sample.workflow_status",
     "sample.qc",
     "sample.calibration_equation",
     "sample.correlation_r",
@@ -243,25 +247,34 @@ def _replace_tokens(root: ET.Element, values: dict[str, str]) -> None:
 
 
 def _sample_values(row: dict[str, Any], labels: dict[str, str]) -> dict[str, str]:
-    activity = row.get("activity_bq_kg") or {}
+    statuses = (row.get("quality") or {}).get("nuclides") or {}
+    reportable = {key: (statuses.get(key) or {}).get("reportable_activity_bq_kg") for key in ("Ra226", "Th232", "K40")}
+    estimated = {key: (statuses.get(key) or {}).get("estimated_activity_bq_kg") for key in ("Ra226", "Th232", "K40")}
     calibration = row.get("calibration") or {}
     warnings = row.get("warnings") or []
+    quality = row.get("quality") or {}
+    gate_messages = [str(issue.get("code")) for issue in quality.get("issues", [])]
+    needs_review = bool(warnings or gate_messages or quality.get("workflow_status") != "ready_for_quantification")
     return {
         "sample.no": str(row.get("spectrum_no", "—")),
         "sample.name": str(row.get("name", "—")),
         "sample.mass_g": _number(row.get("mass_g")),
-        "sample.ra_ppm": _number(row.get("ra_ppm")),
-        "sample.th_ppm": _number(row.get("th_ppm")),
-        "sample.k_percent": _number(row.get("k_percent")),
-        "sample.ra_bq_kg": _number(activity.get("Ra226")),
-        "sample.th_bq_kg": _number(activity.get("Th232")),
-        "sample.k_bq_kg": _number(activity.get("K40")),
-        "sample.qc": labels["review"] if warnings else labels["pass"],
+        "sample.ra_ppm": _number(reportable["Ra226"] / 36600 if reportable["Ra226"] is not None else None),
+        "sample.th_ppm": _number(reportable["Th232"] / 4.056 if reportable["Th232"] is not None else None),
+        "sample.k_percent": _number(reportable["K40"] / 311 if reportable["K40"] is not None else None),
+        "sample.ra_bq_kg": _number(reportable["Ra226"]),
+        "sample.th_bq_kg": _number(reportable["Th232"]),
+        "sample.k_bq_kg": _number(reportable["K40"]),
+        "sample.ra_estimated_bq_kg": _number(estimated["Ra226"]),
+        "sample.th_estimated_bq_kg": _number(estimated["Th232"]),
+        "sample.k_estimated_bq_kg": _number(estimated["K40"]),
+        "sample.workflow_status": str((row.get("quality") or {}).get("workflow_status", "unknown")),
+        "sample.qc": labels["review"] if needs_review else labels["pass"],
         "sample.calibration_equation": _calibration_equation(calibration),
         "sample.correlation_r": _number(calibration.get("correlation_r")),
         "sample.deviation_percent": _number(calibration.get("relative_deviation_percent")),
         "sample.rms_keV": _number(calibration.get("rms_keV")),
-        "sample.warnings": "；".join(str(item) for item in warnings) if warnings else labels["pass"],
+        "sample.warnings": "；".join([*(str(item) for item in warnings), *gate_messages]) if needs_review else labels["pass"],
     }
 
 

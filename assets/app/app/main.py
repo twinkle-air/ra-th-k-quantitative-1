@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -13,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .services.analysis import AnalysisSettings, analyze_batch
+from .services.evidence import attach_evidence, file_identity
 from .services.exporters import export_pdf, export_png, export_xlsx
 from .services.parameter_import import parse_analysis_parameters
 from .services.parsers import inspect_spectrum_metadata, parse_spectrum
@@ -22,13 +24,15 @@ from .services.report_templates import (
     inspect_report_template,
     render_report_template,
 )
+from .services.report_validation import require_exportable_analysis
+from .version import SKILL_VERSION
 
 
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 DEFAULT_CALIBRATION_FILE = APP_DIR.parent / "data" / "default_calibration_source.xls"
 PROJECT_EXPORT_DIR = APP_DIR.parents[2] / "exports"
-app = FastAPI(title="Ra-Th-K Spectrum Agent", version="0.1.0")
+app = FastAPI(title="Ra-Th-K Spectrum Agent", version=SKILL_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -86,6 +90,7 @@ def _template_bytes(request: ExportRequest) -> tuple[str, bytes]:
 
 
 def _render_export(format_name: str, request: ExportRequest) -> tuple[bytes, str]:
+    require_exportable_analysis(request.analysis)
     exporters = {"xlsx": export_xlsx, "png": export_png, "pdf": export_pdf}
     if format_name in exporters:
         return exporters[format_name](request.analysis, request.language), format_name
@@ -189,10 +194,13 @@ async def analyze(
             live_times.get("calibration"),
         )
         parsed_samples = []
+        sample_identities: list[dict[str, Any]] = []
         for index, upload in enumerate(samples):
             content = await upload.read()
+            sample_name = upload.filename or f"sample-{index + 1}.txt"
+            sample_identities.append(file_identity(sample_name, content, "sample"))
             parsed_samples.append(parse_spectrum(
-                upload.filename or f"sample-{index + 1}.txt", content,
+                sample_name, content,
                 live_times.get(str(index)) or live_times.get(upload.filename or ""),
             ))
         option_data = request.get("analysis", {})
@@ -209,9 +217,32 @@ async def analyze(
             background_width_keV=float(option_data.get("background_width_keV", 3.6)),
             correct_k_interference=bool(option_data.get("correct_k_interference", True)),
             assume_chain_equilibrium=bool(option_data.get("assume_chain_equilibrium", True)),
-            apply_builtin_validation_profile=use_default,
+            apply_builtin_validation_profile=bool(option_data.get("apply_legacy_empirical_profile", False)),
+            source_kind="bundled" if use_default else "custom",
+            standard_certificate_id=option_data.get("standard_certificate_id"),
+            standard_traceable=bool(option_data.get("standard_traceable", False)),
+            geometry_match=option_data.get("geometry_match"),
+            matrix_match=option_data.get("matrix_match"),
+            multi_peak_max_relative_deviation_percent=float(
+                option_data.get("multi_peak_max_relative_deviation_percent", 30.0)
+            ),
         )
-        return analyze_batch(standard, parsed_samples, masses, settings, request.get("calibration_specs"))
+        result = analyze_batch(standard, parsed_samples, masses, settings, request.get("calibration_specs"))
+        standard_identity = {
+            "certificate_id": settings.standard_certificate_id,
+            "traceable": settings.standard_traceable,
+            "source_kind": settings.source_kind,
+            "reference_date": settings.reference_date,
+            "activities_bq": settings.reference_activities_bq,
+            "geometry_match": settings.geometry_match,
+            "matrix_match": settings.matrix_match,
+        }
+        return attach_evidence(
+            result,
+            input_files=[file_identity(calibration_name, calibration_data, "calibration"), *sample_identities],
+            parameters={"settings": asdict(settings), "calibration_specs": request.get("calibration_specs")},
+            standard_identity=standard_identity,
+        )
     except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -230,7 +261,7 @@ def export(format_name: str, request: ExportRequest) -> Response:
     try:
         data, suffix = _render_export(format_name, request)
     except (ValueError, OSError) as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=422 if isinstance(exc, ValueError) else 500, detail=str(exc)) from exc
     if format_name == "template":
         media_type = "application/pdf" if suffix == "pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         filename = f"rtk-template-report.{suffix}"
@@ -247,7 +278,7 @@ def save_export(format_name: str, request: ExportSaveRequest) -> dict[str, Any]:
     try:
         data, suffix = _render_export(format_name, request)
     except (ValueError, OSError) as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=422 if isinstance(exc, ValueError) else 500, detail=str(exc)) from exc
     destination = _unique_export_destination(directory, suffix)
     fallback = False
     try:

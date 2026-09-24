@@ -20,6 +20,7 @@ from app.services.analysis import (
     _validated_th232_activity, analyze_batch,
 )
 from app.services.exporters import _calibration_equation, export_pdf, export_png, export_xlsx
+from app.services.evidence import attach_evidence
 from app.services.parameter_import import parse_analysis_parameters
 from app.services.parsers import Spectrum, inspect_spectrum_metadata, parse_spectrum
 from app.services.report_templates import (
@@ -43,6 +44,9 @@ def synthetic(name: str, scale: float, mass_g: float = 500.0) -> Spectrum:
 
 
 class CoreTests(unittest.TestCase):
+    @staticmethod
+    def _signed(result):
+        return attach_evidence(result, input_files=[], parameters={}, standard_identity={})
     @staticmethod
     def _docx_with_rows(rows):
         ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -228,7 +232,7 @@ class CoreTests(unittest.TestCase):
         from app.main import ExportSaveRequest, save_export
         with tempfile.TemporaryDirectory() as directory:
             payload = save_export("pdf", ExportSaveRequest(
-                analysis=result, language="zh", directory=directory,
+                analysis=self._signed(result), language="zh", directory=directory,
             ))
             self.assertIs(payload["fallback"], False)
             self.assertTrue(Path(payload["path"]).is_file())
@@ -256,7 +260,7 @@ class CoreTests(unittest.TestCase):
         from app.main import ExportSaveRequest, save_export
         with tempfile.TemporaryDirectory() as directory:
             saved = save_export("template", ExportSaveRequest(
-                analysis=result, language="zh", directory=directory,
+                analysis=self._signed(result), language="zh", directory=directory,
                 template_name="lab-template.docx",
                 template_base64=base64.b64encode(template).decode("ascii"),
             ))
@@ -318,7 +322,7 @@ class CoreTests(unittest.TestCase):
             api = DesktopApi()
             api.export_directory = Path(directory)
             for format_name, signature in (("png", b"\x89PNG"), ("pdf", b"%PDF"), ("xlsx", b"PK")):
-                saved = api.save_export(format_name, "zh", result)
+                saved = api.save_export(format_name, "zh", self._signed(result))
                 destination = Path(saved["path"])
                 self.assertEqual(destination.parent, Path(directory))
                 self.assertEqual(destination.suffix, f".{format_name}")

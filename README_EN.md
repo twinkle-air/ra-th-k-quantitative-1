@@ -1,6 +1,8 @@
 # Ra–Th–K Quantitative 1
 
-> Current release: **v1.4.0 (2026-09-10)** · An incremental update to the same Skill, not a new project
+> Current version: **v1.5.1 (2026-09-23)** · An incremental update to the same Skill, not a new project
+
+[简体中文 README](README.md) · English
 
 <p align="center">
   <img src="assets/project-icon.png" alt="Ra–Th–K Quantitative 1 icon" width="220">
@@ -10,7 +12,31 @@ Ra–Th–K Quantitative 1 is an Agent Skill for quantitative radium, thorium, a
 
 > This project is an auxiliary calculation and traceable-reporting tool, not a certified laboratory measurement system. The user remains responsible for sample preparation, calibration-source traceability, measurement-geometry consistency, decay-chain equilibrium, detection limits, and uncertainty evaluation.
 
-![Latest Ra–Th–K Quantitative 1 interface](assets/ui-verification.png)
+![Current local Ra–Th–K Quantitative 1 interface, captured on 2026-09-24](assets/ui-verification.png)
+
+## Repository sync on 2026-09-24 (still v1.5.1)
+
+- Added a [value-by-value nuclear-data audit status](references/NUCLEAR_DATA_AUDIT.md) and a reproducible K-40 sensitivity script. The production nuclear-data table was **not** replaced; its individual values have not all been independently verified.
+- Documented the [public independent-data search](evaluation/PUBLIC_DATA.md). No qualifying open, end-to-end blind-sample dataset has been secured, so no blind-sample accuracy is claimed.
+- Tightened the independent evaluation entry point: raw sample and standard spectra must be bound to the analysis snapshot, with separate energy-calibration evidence and explicit calibration parameters. User declarations of independence still require manual checking.
+- Recorded [exact package versions for the current Windows/CPython 3.12 environment](requirements-lock-py312.txt). This is **not** a cross-platform hash-locked environment. Real traces for the planned two-host, three-condition ablation and a fixed release commit remain pending.
+- Replaced the interface image with a screenshot of the current locally running web page.
+
+## What's New in v1.5.1
+
+- Web, desktop, CLI, and MCP exports share snapshot validation and blocking quality gates. Tampered results, missing evidence, and blocked analyses cannot produce formal reports.
+- Separated `estimated_activity_bq_kg` from `reportable_activity_bq_kg`. Conditional and non-detected results no longer appear as formally reportable activity or concentration values; templates may explicitly request estimated values.
+- An efficiency standard without acquisition time is marked as not decay-corrected from reference date to measurement time, yielding a conditional result.
+- Evidence snapshots distinguish user-declared certificates, traceability, and geometry from independently verified facts. Nuclear-data entries include versioned check pointers without claiming that all values have been audited.
+- Added independent scientific evaluation scaffolding, cross-host trace collection entry points, blank-sample and export-gate regression tests. Real blind-sample accuracy and results on two hosts remain unmeasured.
+
+## What's New in v1.5.0
+
+- Added six deterministic Agent tools with shared JSON Schemas: `inspect_spectrum`, `validate_inputs`, `fit_energy_calibration`, `analyze_ra_th_k`, `validate_analysis`, and `export_report`, exposed through CLI and stdio MCP.
+- Made failures in live time, mass, and energy calibration blocking; traceability, geometry/matrix matching, equilibrium, multiplet consistency, and non-detection are machine-readable conditional states.
+- Added canonicalized analysis snapshots and SHA-256 evidence fingerprints, with tamper checks for results and nuclear data.
+- Clarified that the reported uncertainty covers counting statistics, not a complete combined measurement uncertainty.
+- Replaced the fixed K-40 efficiency extrapolation exponent with the slope fitted from the active standard-source peaks. Historical empirical correction is restricted to the exact matching bundled source.
 
 ## What's New in v1.4.0
 

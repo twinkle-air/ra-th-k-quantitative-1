@@ -21,6 +21,7 @@ import uvicorn
 from app.main import app
 from app.services.exporters import export_pdf, export_png, export_xlsx
 from app.services.report_templates import render_report_template
+from app.services.report_validation import require_exportable_analysis
 
 
 class DesktopApi:
@@ -57,6 +58,7 @@ class DesktopApi:
         template_name: str | None = None,
         template_base64: str | None = None,
     ) -> dict[str, str]:
+        require_exportable_analysis(analysis)
         exporters = {"png": export_png, "pdf": export_pdf, "xlsx": export_xlsx}
         if format_name not in {*exporters, "template"}:
             raise ValueError("不支持的导出格式。")

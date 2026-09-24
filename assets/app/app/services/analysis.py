@@ -2,38 +2,44 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime
+import json
 import math
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from .parsers import Spectrum
 from .spectrum import Calibration, PeakArea, auto_calibrate, fit_manual_calibration, integrate_peak
+from .quality import apply_quality_gates
 
 
-NUCLIDE_PEAKS = {
-    "Ra226": [295.224, 351.932, 609.312],
-    "Th232": [238.632, 583.187, 911.204],
-    "K40": [1460.822],
-}
+NUCLEAR_DATA_FILE = Path(__file__).resolve().parents[2] / "data" / "nuclear_data.json"
+NUCLEAR_DATA = json.loads(NUCLEAR_DATA_FILE.read_text(encoding="utf-8"))
 
+
+GAMMA_LINES = NUCLEAR_DATA["gamma_lines"]
+MEASUREMENT_LINES = [line for line in GAMMA_LINES if line.get("role") != "K-40 interference correction"]
+NUCLIDE_PEAKS = {target: [line["energy_keV"] for line in MEASUREMENT_LINES if line["target"] == target]
+                 for target in ("Ra226", "Th232", "K40")}
+_DEFAULT_CHANNELS = {238.632: 803, 295.224: 994, 351.932: 1185, 583.187: 1964,
+                     609.312: 2052, 911.204: 3068, 1460.822: 4919}
 PEAK_REFERENCES = [
-    {"nuclide": "Th232", "emitter": "Pb-212", "energy_keV": 238.632, "default_reference_channel": 803},
-    {"nuclide": "Ra226", "emitter": "Pb-214", "energy_keV": 295.224, "default_reference_channel": 994},
-    {"nuclide": "Ra226", "emitter": "Pb-214", "energy_keV": 351.932, "default_reference_channel": 1185},
-    {"nuclide": "Th232", "emitter": "Tl-208", "energy_keV": 583.187, "default_reference_channel": 1964},
-    {"nuclide": "Ra226", "emitter": "Bi-214", "energy_keV": 609.312, "default_reference_channel": 2052},
-    {"nuclide": "Th232", "emitter": "Ac-228", "energy_keV": 911.204, "default_reference_channel": 3068},
-    {"nuclide": "K40", "emitter": "K-40", "energy_keV": 1460.822, "default_reference_channel": 4919},
+    {"nuclide": line["target"], "emitter": line["emitter"], "energy_keV": line["energy_keV"],
+     "default_reference_channel": _DEFAULT_CHANNELS.get(line["energy_keV"])}
+    for line in MEASUREMENT_LINES
 ]
 
-HALF_LIFE_YEARS = {"Ra226": 1600.0, "Th232": 1.405e10, "K40": 1.248e9}
+HALF_LIFE_YEARS = NUCLEAR_DATA["half_life_years"]
+ACTIVITY_CONVERSION = NUCLEAR_DATA["activity_conversion"]
 DEFAULT_REFERENCE_ACTIVITIES_BQ = {"Ra226": 903.0, "Th232": 483.0, "K40": 668.0}
 
-# Validation profile established from the supplied five-sample DOCX reference.
-# It is applied only with the bundled 7NTR-1024 source, never to custom sources.
+# Legacy empirical profile established from the supplied five-sample DOCX reference.
+# It is disabled by default, is not independent validation, and is forbidden for custom sources.
 BUILTIN_VALIDATION_PROFILE = {
-    "name": "7NTR-1024 / five-sample validation v1",
+    "name": "legacy 7NTR-1024 / five-sample empirical profile v1",
+    "evidence_class": "tuning-data-not-independent-validation",
+    "applicability": "bundled source and original five-sample workflow only",
     "th232_line_weights": {583.187: 0.70, 911.204: 0.30},
     "k40_gamma_probability": 0.1067,
     "k40_validation_factor": 1.046876767414177,
@@ -41,14 +47,17 @@ BUILTIN_VALIDATION_PROFILE = {
 }
 
 EFFICIENCY_LINE_DATA = [
-    ("Th232", 0, 238.632, 0.4360),
-    ("Ra226", 0, 295.224, 0.1842),
-    ("Ra226", 1, 351.932, 0.3560),
-    ("Th232", 1, 583.187, 0.8450 * 0.3590),
-    ("Ra226", 2, 609.312, 0.4610),
-    ("Th232", 2, 911.204, 0.2580),
+    (line["target"], NUCLIDE_PEAKS[line["target"]].index(line["energy_keV"]), line["energy_keV"],
+     line["emission_probability"] * line.get("branch_factor", 1.0))
+    for line in MEASUREMENT_LINES if line["target"] != "K40"
 ]
-EFFICIENCY_CALIBRATION_LINES = EFFICIENCY_LINE_DATA + [("K40", 0, 1460.822, 0.1067)]
+EFFICIENCY_CALIBRATION_LINES = EFFICIENCY_LINE_DATA + [
+    ("K40", 0, NUCLIDE_PEAKS["K40"][0], next(line["emission_probability"] for line in MEASUREMENT_LINES if line["target"] == "K40"))
+]
+AC228_INTERFERENCE = next(line for line in GAMMA_LINES if line.get("role") == "K-40 interference correction")
+AC228_REFERENCE = next(line for line in MEASUREMENT_LINES if line["emitter"] == "Ac-228" and line["target"] == "Th232")
+AC228_PROBABILITY_RATIO = AC228_INTERFERENCE["emission_probability"] / AC228_REFERENCE["emission_probability"]
+AC228_ENERGY_RATIO = AC228_INTERFERENCE["energy_keV"] / AC228_REFERENCE["energy_keV"]
 
 
 @dataclass
@@ -62,10 +71,18 @@ class AnalysisSettings:
     correct_k_interference: bool = True
     assume_chain_equilibrium: bool = True
     apply_builtin_validation_profile: bool = False
+    source_kind: str = "custom"
+    standard_certificate_id: str | None = None
+    standard_traceable: bool = False
+    geometry_match: bool | None = None
+    matrix_match: bool | None = None
+    multi_peak_max_relative_deviation_percent: float = 30.0
 
     def __post_init__(self) -> None:
         if self.reference_activities_bq is None:
             self.reference_activities_bq = dict(DEFAULT_REFERENCE_ACTIVITIES_BQ)
+        if self.multi_peak_max_relative_deviation_percent <= 0:
+            raise ValueError("多峰一致性阈值必须大于0。")
 
 
 def _decay_correct(activity: float, half_life_years: float, reference: str, target: datetime | None) -> float:
@@ -162,11 +179,11 @@ def _validated_th232_activity(detail: list[dict[str, float]]) -> tuple[float, fl
     return value, uncertainty
 
 
-def _k40_efficiency_from_ra_th(
+def _fit_efficiency_power_law(
     standard_peaks: dict[str, list[PeakArea]],
     settings: AnalysisSettings,
     acquired_at: datetime | None,
-) -> tuple[float, float]:
+) -> tuple[float, float, float]:
     log_energies: list[float] = []
     log_efficiencies: list[float] = []
     for nuclide, peak_index, energy, probability in EFFICIENCY_LINE_DATA:
@@ -184,7 +201,16 @@ def _k40_efficiency_from_ra_th(
     slope, intercept = np.polyfit(np.asarray(log_energies), np.asarray(log_efficiencies), 1)
     fitted = slope * np.asarray(log_energies) + intercept
     relative_scatter = float(np.sqrt(np.mean((np.asarray(log_efficiencies) - fitted) ** 2)))
-    efficiency = math.exp(float(slope * math.log(1460.822) + intercept))
+    efficiency = math.exp(float(slope * math.log(NUCLIDE_PEAKS["K40"][0]) + intercept))
+    return efficiency, relative_scatter, float(slope)
+
+
+def _k40_efficiency_from_ra_th(
+    standard_peaks: dict[str, list[PeakArea]],
+    settings: AnalysisSettings,
+    acquired_at: datetime | None,
+) -> tuple[float, float]:
+    efficiency, relative_scatter, _ = _fit_efficiency_power_law(standard_peaks, settings, acquired_at)
     return efficiency, relative_scatter
 
 
@@ -195,6 +221,10 @@ def _full_energy_peak_efficiency_calibration(
 ) -> dict[str, Any]:
     """Calculate full-energy-peak detection probability and a log-log fit."""
     points: list[dict[str, Any]] = []
+    try:
+        _, _, fitted_efficiency_slope = _fit_efficiency_power_law(standard_peaks, settings, acquired_at)
+    except ValueError:
+        fitted_efficiency_slope = None
     for nuclide, peak_index, energy, emission_probability in EFFICIENCY_CALIBRATION_LINES:
         peak = standard_peaks[nuclide][peak_index]
         activity = _decay_correct(
@@ -202,10 +232,13 @@ def _full_energy_peak_efficiency_calibration(
             settings.reference_date, acquired_at,
         )
         net_cps = peak.net_cps
-        if nuclide == "K40" and settings.correct_k_interference:
+        if nuclide == "K40" and settings.correct_k_interference and fitted_efficiency_slope is not None:
             th_peak = standard_peaks["Th232"][2]
             if th_peak.detected:
-                net_cps -= max(0.0, th_peak.net_cps * (0.0083 / 0.258) * (1459.14 / 911.204) ** -0.8)
+                net_cps -= max(
+                    0.0, th_peak.net_cps * AC228_PROBABILITY_RATIO
+                    * AC228_ENERGY_RATIO ** fitted_efficiency_slope,
+                )
         if not peak.detected or net_cps <= 0 or activity <= 0 or emission_probability <= 0:
             continue
         efficiency = net_cps / (activity * emission_probability)
@@ -246,6 +279,8 @@ def analyze_batch(
     settings: AnalysisSettings,
     calibration_specs: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    if settings.apply_builtin_validation_profile and settings.source_kind != "bundled":
+        raise ValueError("旧版五样品经验配置只能用于内置刻度源，禁止用于自定义刻度源。")
     if len(samples) != len(sample_masses_g):
         raise ValueError("样品数量与质量数量不一致。")
     calibration_specs = calibration_specs or {}
@@ -312,9 +347,18 @@ def analyze_batch(
         sample_k_cps, standard_k_cps = sample_k.net_cps, standard_k.net_cps
         correction_sample = correction_standard = 0.0
         if settings.correct_k_interference:
-            p_ratio = 0.0083 / 0.258
-            # Smooth power-law efficiency ratio; exponent -0.8 is conservative for coaxial HPGe.
-            efficiency_ratio = (1459.14 / 911.204) ** -0.8
+            p_ratio = AC228_PROBABILITY_RATIO
+            try:
+                _, _, fitted_efficiency_slope = _fit_efficiency_power_law(
+                    standard_peaks, settings, calibration_spectrum.acquired_at,
+                )
+            except ValueError:
+                fitted_efficiency_slope = None
+                warnings.append("刻度源有效效率点不足，未执行K-40的Ac-228干扰修正。")
+            efficiency_ratio = (
+                AC228_ENERGY_RATIO ** fitted_efficiency_slope
+                if fitted_efficiency_slope is not None else 0.0
+            )
             ratio = p_ratio * efficiency_ratio
             sample_th_peak = sample_peak_map["Th232"][2]
             standard_th_peak = standard_peaks["Th232"][2]
@@ -359,7 +403,7 @@ def analyze_batch(
                 warnings.append(str(exc))
         activities["K40"], uncertainties["K40"] = k_activity, k_u
         peak_results["K40"] = [{
-            "energy_keV": 1460.822,
+            "energy_keV": NUCLIDE_PEAKS["K40"][0],
             "activity_bq_kg": k_activity,
             "u_bq_kg": k_u,
             "raw_relative_activity_bq_kg": raw_k_activity,
@@ -368,9 +412,9 @@ def analyze_batch(
         }]
 
         # 226Ra specific activity is about 3.66e10 Bq/kg; 1 ppm = 1 mg/kg.
-        ra_ppm = activities["Ra226"] / 3.66e4 if math.isfinite(activities["Ra226"]) else None
-        th_ppm = activities["Th232"] / 4.056 if math.isfinite(activities["Th232"]) else None
-        k_percent = activities["K40"] / 311.0 if math.isfinite(activities["K40"]) else None
+        ra_ppm = activities["Ra226"] / ACTIVITY_CONVERSION["ra226_bq_kg_per_ppm"] if math.isfinite(activities["Ra226"]) else None
+        th_ppm = activities["Th232"] / ACTIVITY_CONVERSION["th232_bq_kg_per_ppm"] if math.isfinite(activities["Th232"]) else None
+        k_percent = activities["K40"] / ACTIVITY_CONVERSION["k40_bq_kg_per_percent_k"] if math.isfinite(activities["K40"]) else None
         results.append({
             "spectrum_no": index,
             "name": sample.name,
@@ -391,7 +435,7 @@ def analyze_batch(
             "preview": _spectrum_preview(sample),
         })
 
-    return {
+    output = {
         "method": ("validated same-geometry comparison; K-40 uses Ra/Th power-law efficiency extrapolation"
                    if settings.apply_builtin_validation_profile else
                    "same-geometry relative comparison with local linear background"),
@@ -403,17 +447,21 @@ def analyze_batch(
             "dead_time_fraction": calibration_spectrum.dead_time_fraction,
             "activities_bq": settings.reference_activities_bq,
             "reference_date": settings.reference_date,
+            "acquired_at": calibration_spectrum.acquired_at.isoformat() if calibration_spectrum.acquired_at else None,
+            "decay_correction": {
+                "applied": calibration_spectrum.acquired_at is not None,
+                "activity_basis": "measurement_time" if calibration_spectrum.acquired_at else "reference_date_unadjusted",
+            },
             "peaks": {key: [_peak_payload(item, key, standard_cal) for item in value] for key, value in standard_peaks.items()},
             "preview": _spectrum_preview(calibration_spectrum),
             "efficiency_calibration": efficiency_calibration,
         },
         "results": results,
         "constants": {
-            "ra226_bq_kg_per_ppm": 3.66e4,
-            "th232_bq_kg_per_ppm": 4.056,
-            "k40_bq_kg_per_percent_k": 311.0,
+            **ACTIVITY_CONVERSION,
             "validation_profile": (BUILTIN_VALIDATION_PROFILE if settings.apply_builtin_validation_profile else None),
         },
         "peak_references": PEAK_REFERENCES,
         "disclaimer": "Ra/Th由子体峰估计；结果有效性依赖衰变链平衡、几何与基质匹配。",
     }
+    return apply_quality_gates(output, settings)

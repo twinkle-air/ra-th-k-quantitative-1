@@ -152,8 +152,8 @@ def inspect_spectrum_metadata(filename: str, payload: bytes) -> dict[str, object
 
 def _parse_datetime(metadata: dict[str, str]) -> datetime | None:
     date = metadata.get("DATE")
-    time = metadata.get("TIME", "00:00:00")
-    if not date:
+    time = metadata.get("TIME")
+    if not date or not time:
         return None
     value = f"{date} {time}"
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S", "%d/%m/%Y %H:%M:%S"):

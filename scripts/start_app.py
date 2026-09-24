@@ -23,7 +23,7 @@ def imports_work(python: Path) -> bool:
     command = [
         str(python),
         "-c",
-        "import fastapi,uvicorn,multipart,numpy,openpyxl,xlrd,PIL,reportlab,pypdf",
+        "import fastapi,uvicorn,multipart,numpy,openpyxl,xlrd,PIL,reportlab,pypdf,jsonschema,rfc8785",
     ]
     return subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
 

@@ -22,7 +22,7 @@ _TEXT = {
         "ra_conversion": "Ra 换算", "th_conversion": "Th 换算", "k_conversion": "K 换算", "content_results": "镭、钍、钾含量结果", "calibration_qc": "能量刻度拟合质控", "calibration_curves": "能量刻度拟合曲线",
         "peak_analysis": "特征峰数据分析", "analyte_emitter": "分析对象（发射体）", "reference": "参考能量", "observed_short": "实际道址", "converted_short": "换算能量",
         "note": "注：Ra/Th 由子体峰估计；需满足衰变链平衡及样品—校准源几何/基质匹配。", "report_title": "镭、钍、钾定量分析报告", "traceable_detail": "分析过程与可追溯中间量", "primary_reference": "主要特征峰参考数据",
-        "method_value": "经验证的同几何比较法；K-40 使用 Ra/Th 幂律效率外推", "validity_value": "Ra/Th由子体峰估计；结果有效性依赖衰变链平衡、几何与基质匹配。",
+        "method_value": "同几何比较法；K-40 使用 Ra/Th 幂律效率外推；独立盲样验证待完成", "validity_value": "Ra/Th由子体峰估计；结果有效性依赖衰变链平衡、几何与基质匹配。",
     },
     "zht": {
         "channel": "道址 CH", "energy": "能量 / keV", "fitted_line": "擬合直線", "matched_points": "刻度匹配點",
@@ -35,7 +35,7 @@ _TEXT = {
         "ra_conversion": "Ra 換算", "th_conversion": "Th 換算", "k_conversion": "K 換算", "content_results": "鐳、釷、鉀含量結果", "calibration_qc": "能量刻度擬合品管", "calibration_curves": "能量刻度擬合曲線",
         "peak_analysis": "特徵峰資料分析", "analyte_emitter": "分析對象（發射體）", "reference": "參考能量", "observed_short": "實際道址", "converted_short": "換算能量",
         "note": "註：Ra/Th 由子體峰估計；需滿足衰變鏈平衡及樣品—校準源幾何/基質匹配。", "report_title": "鐳、釷、鉀定量分析報告", "traceable_detail": "分析過程與可追溯中間量", "primary_reference": "主要特徵峰參考資料",
-        "method_value": "經驗證的同幾何比較法；K-40 使用 Ra/Th 冪律效率外推", "validity_value": "Ra/Th 由子體峰估計；結果有效性依賴衰變鏈平衡、幾何與基質匹配。",
+        "method_value": "同幾何比較法；K-40 使用 Ra/Th 冪律效率外推；獨立盲樣驗證待完成", "validity_value": "Ra/Th 由子體峰估計；結果有效性依賴衰變鏈平衡、幾何與基質匹配。",
     },
     "en": {
         "channel": "Channel CH", "energy": "Energy / keV", "fitted_line": "Fitted line", "matched_points": "Matched points",
@@ -48,7 +48,7 @@ _TEXT = {
         "ra_conversion": "Ra conversion", "th_conversion": "Th conversion", "k_conversion": "K conversion", "content_results": "Ra, Th and K Content Results", "calibration_qc": "Energy Calibration Fit QC", "calibration_curves": "Energy Calibration Fit Curves",
         "peak_analysis": "Gamma-line Analysis", "analyte_emitter": "Analyte (emitter)", "reference": "Reference", "observed_short": "Channel", "converted_short": "Converted",
         "note": "Note: Ra/Th use daughter peaks; chain equilibrium and matched geometry/matrix are required.", "report_title": "Ra, Th and K Quantitative Analysis Report", "traceable_detail": "Traceable Analysis Detail", "primary_reference": "Primary Gamma-line Reference",
-        "method_value": "validated same-geometry comparison; K-40 uses Ra/Th power-law efficiency extrapolation", "validity_value": "Ra/Th are inferred from daughter peaks; validity requires chain equilibrium and matched geometry/matrix.",
+        "method_value": "matched-geometry comparison; K-40 uses Ra/Th power-law efficiency extrapolation; independent blind validation pending", "validity_value": "Ra/Th are inferred from daughter peaks; validity requires chain equilibrium and matched geometry/matrix.",
     },
     "fr": {
         "channel": "Canal CH", "energy": "Énergie / keV", "fitted_line": "Droite ajustée", "matched_points": "Points appariés",
@@ -61,7 +61,7 @@ _TEXT = {
         "ra_conversion": "Conversion Ra", "th_conversion": "Conversion Th", "k_conversion": "Conversion K", "content_results": "Teneurs en Ra, Th et K", "calibration_qc": "CQ de l’étalonnage en énergie", "calibration_curves": "Courbes d’ajustement en énergie",
         "peak_analysis": "Analyse des raies gamma", "analyte_emitter": "Analyte (émetteur)", "reference": "Référence", "observed_short": "Canal", "converted_short": "Énergie calculée",
         "note": "Note : Ra/Th sont estimés par les raies des descendants ; l’équilibre et l’adéquation géométrie/matrice sont requis.", "report_title": "Rapport d’analyse quantitative Ra, Th et K", "traceable_detail": "Détails traçables de l’analyse", "primary_reference": "Référence des principales raies gamma",
-        "method_value": "comparaison validée à géométrie identique ; K-40 utilise une extrapolation d’efficacité en loi de puissance Ra/Th", "validity_value": "Ra/Th sont estimés à partir des descendants ; la validité exige l’équilibre des chaînes et l’adéquation de la géométrie et de la matrice.",
+        "method_value": "comparaison à géométrie identique ; K-40 utilise une extrapolation d’efficacité Ra/Th ; validation indépendante en attente", "validity_value": "Ra/Th sont estimés à partir des descendants ; la validité exige l’équilibre des chaînes et l’adéquation de la géométrie et de la matrice.",
     },
 }
 
@@ -71,6 +71,21 @@ _DETECTION_TEXT = {
     "en": {"critical_level": "Decision threshold Lc (counts)", "detection": "Detection", "detected": "Detected", "not_detected": "Not detected", "background_method": "Background method"},
     "fr": {"critical_level": "Seuil de décision Lc (comptages)", "detection": "Détection", "detected": "Détecté", "not_detected": "Non détecté", "background_method": "Méthode du fond"},
 }
+_CONDITIONAL_NOTES = {
+    "zh": "条件性/非检出数值不列入正式结果；估算值仅供过程复核。",
+    "zht": "條件性／未檢出數值不列入正式結果；估算值僅供過程複核。",
+    "en": "Conditional/undetected estimates are omitted from formal results; review intermediate values only.",
+    "fr": "Les estimations conditionnelles/non détectées sont exclues des résultats officiels ; valeurs intermédiaires à vérifier.",
+}
+
+
+def _result_note(analysis: dict[str, Any], language: str) -> str:
+    base = _tr(language, "note")
+    if any(status.get("reportable_activity_bq_kg") is None for row in analysis.get("results", [])
+           for status in row.get("quality", {}).get("nuclides", {}).values()):
+        return _CONDITIONAL_NOTES[language]
+    return base
+
 for _language, _values in _DETECTION_TEXT.items():
     _TEXT[_language].update(_values)
 _PROBABILITY_TEXT = {
@@ -93,6 +108,21 @@ def _number(value: Any, digits: int = 4) -> str:
     if value is None or not isinstance(value, (int, float)) or not math.isfinite(value):
         return "—"
     return f"{value:.{digits}g}"
+
+
+def _reported_activity(item: dict[str, Any], nuclide: str) -> float | None:
+    status = item.get("quality", {}).get("nuclides", {}).get(nuclide)
+    if isinstance(status, dict):
+        return status.get("reportable_activity_bq_kg")
+    return None
+
+
+def _reported_content(item: dict[str, Any], nuclide: str) -> float | None:
+    activity = _reported_activity(item, nuclide)
+    if not isinstance(activity, (int, float)) or not math.isfinite(activity):
+        return None
+    divisor = {"Ra226": 36600.0, "Th232": 4.056, "K40": 311.0}[nuclide]
+    return activity / divisor
 
 
 def _calibration_equation(slope: Any, intercept: Any, digits: int = 8, include_unit: bool = True) -> str:
@@ -266,8 +296,8 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
         cell.fill = PatternFill("solid", fgColor="176B70")
         cell.alignment = Alignment(horizontal="center", vertical="center")
     for row, item in enumerate(analysis.get("results", []), 4):
-        values = [item.get("spectrum_no"), item.get("name"), item.get("ra_ppm"), item.get("th_ppm"),
-                  item.get("k_percent"), item.get("mass_g")]
+        values = [item.get("spectrum_no"), item.get("name"), _reported_content(item, "Ra226"),
+                  _reported_content(item, "Th232"), _reported_content(item, "K40"), item.get("mass_g")]
         for col, value in enumerate(values, 1):
             ws.cell(row, col, value)
             ws.cell(row, col).alignment = Alignment(horizontal="center")
@@ -294,8 +324,8 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
         cell.alignment = Alignment(horizontal="center")
     for row, item in enumerate(analysis.get("results", []), 4):
         values = [item.get("name"), item.get("mass_g", 0) / 1000,
-                  item.get("activity_bq_kg", {}).get("Th232"), item.get("activity_bq_kg", {}).get("Ra226"),
-                  item.get("activity_bq_kg", {}).get("K40")]
+                  _reported_activity(item, "Th232"), _reported_activity(item, "Ra226"),
+                  _reported_activity(item, "K40")]
         for col, value in enumerate(values, 1):
             activity.cell(row, col, value)
             activity.cell(row, col).alignment = Alignment(horizontal="center")
@@ -491,6 +521,10 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
         (_tr(language, "th_conversion"), "Th (ppm) = A(Th-232) / 4.056"),
         (_tr(language, "k_conversion"), "K (%) = A(K-40) / 311"),
         (_tr(language, "validity"), _tr(language, "validity_value")),
+        ("reporting_policy", _result_note(analysis, language)),
+        ("workflow_status", analysis.get("quality", {}).get("workflow_status")),
+        ("counting_uncertainty_scope", "counting_statistics_only; combined_measurement_uncertainty_available=false"),
+        ("evidence_sha256", analysis.get("evidence", {}).get("snapshot_sha256")),
         (_tr(language, "machine_record"), json.dumps(analysis.get("constants", {}), ensure_ascii=False)),
     ]
     for row in method_rows:
@@ -552,15 +586,15 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
 
     y = 125
     content_headers = [_tr(language, "spectrum"), _tr(language, "file"), "Ra (ppm)", "Th (ppm)", "K (%)"]
-    content_values = [[item.get("spectrum_no"), item.get("name"), _number(item.get("ra_ppm")),
-                       _number(item.get("th_ppm")), _number(item.get("k_percent"))] for item in rows]
+    content_values = [[item.get("spectrum_no"), item.get("name"), _number(_reported_content(item, "Ra226")),
+                       _number(_reported_content(item, "Th232")), _number(_reported_content(item, "K40"))] for item in rows]
     y = table(y, _tr(language, "content_results"), content_headers, content_values,
               [170, 530, 280, 280, 280])
     activity_headers = [_tr(language, "sample"), _tr(language, "mass_kg"), "Th-232 / Bq/kg", "Ra-226 / Bq/kg", "K-40 / Bq/kg"]
     activity_values = [[item.get("name"), _number(item.get("mass_g", 0) / 1000, 6),
-                        _number(item.get("activity_bq_kg", {}).get("Th232"), 7),
-                        _number(item.get("activity_bq_kg", {}).get("Ra226"), 7),
-                        _number(item.get("activity_bq_kg", {}).get("K40"), 7)] for item in rows]
+                        _number(_reported_activity(item, "Th232"), 7),
+                        _number(_reported_activity(item, "Ra226"), 7),
+                        _number(_reported_activity(item, "K40"), 7)] for item in rows]
     y = table(y, _tr(language, "activity_title"), activity_headers,
               activity_values, [360, 220, 320, 320, 320])
 
@@ -625,7 +659,7 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
         draw.text((50, y), f"{_tr(language, 'activity_comparison')} (Bq/kg)", font=bold, fill="#17324D")
         chart_top, chart_bottom, chart_left, chart_right = y + 50, y + 410, 130, 1530
         series = [("Th232", "Th-232", "#3B6B82"), ("Ra226", "Ra-226", "#CF7A14"), ("K40", "K-40", "#3F8F3A")]
-        finite = [item.get("activity_bq_kg", {}).get(key) for item in rows for key, _, _ in series]
+        finite = [_reported_activity(item, key) for item in rows for key, _, _ in series]
         maximum = max([value for value in finite if isinstance(value, (int, float)) and math.isfinite(value)] or [1]) * 1.12
         for tick in range(6):
             yy = chart_bottom - (chart_bottom - chart_top) * tick / 5
@@ -636,7 +670,7 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
         for index, item in enumerate(rows):
             center = chart_left + group_width * (index + 0.5)
             for series_index, (key, _, color) in enumerate(series):
-                value = item.get("activity_bq_kg", {}).get(key)
+                value = _reported_activity(item, key)
                 value = value if isinstance(value, (int, float)) and math.isfinite(value) else 0
                 bar_height = value / maximum * (chart_bottom - chart_top)
                 x = center + (series_index - 1) * bar_width - bar_width * 0.42
@@ -658,8 +692,13 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
                                     _number(peak.get("gross_counts")), _number(peak.get("background_counts")), _number(peak.get("net_counts"))])
     y = table(y, _tr(language, "peak_analysis"), peak_headers, peak_values,
               [190, 260, 180, 180, 180, 170, 170, 170])
-    note = _tr(language, "note")
+    note = _result_note(analysis, language)
     draw.text((50, y + 5), note, font=small, fill="#506873")
+    draw.text((50, y + 38),
+              f"workflow_status={analysis.get('quality', {}).get('workflow_status')} / "
+              f"counting_uncertainty_scope=counting_statistics_only / "
+              f"evidence_sha256={analysis.get('evidence', {}).get('snapshot_sha256') or 'not-attached'}",
+              font=small, fill="#506873")
     stream = BytesIO()
     image.save(stream, "PNG", dpi=(180, 180))
     return stream.getvalue()
@@ -719,7 +758,8 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
     headers = [_tr(language, "spectrum"), _tr(language, "file"), "Ra (ppm)", "Th (ppm)", "K (%)"]
     data = [headers]
     for item in analysis.get("results", []):
-        data.append([item.get("spectrum_no"), item.get("name"), _number(item.get("ra_ppm")), _number(item.get("th_ppm")), _number(item.get("k_percent"))])
+        data.append([item.get("spectrum_no"), item.get("name"), _number(_reported_content(item, "Ra226")),
+                     _number(_reported_content(item, "Th232")), _number(_reported_content(item, "K40"))])
     table = Table(data, colWidths=[32 * mm, 82 * mm, 46 * mm, 46 * mm, 46 * mm], repeatRows=1)
     table.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), font_name), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#176B70")),
@@ -728,14 +768,14 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#EAF1EF")]),
         ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
     ]))
-    note = _tr(language, "validity_value")
+    note = _tr(language, "validity_value") + " " + _result_note(analysis, language)
     activity_headers = [_tr(language, "sample"), _tr(language, "mass_kg"), "Th-232 / Bq/kg", "Ra-226 / Bq/kg", "K-40 / Bq/kg"]
     activity_data = [activity_headers]
     for item in analysis.get("results", []):
         activity_data.append([item.get("name"), _number(item.get("mass_g", 0) / 1000, 6),
-                              _number(item.get("activity_bq_kg", {}).get("Th232"), 7),
-                              _number(item.get("activity_bq_kg", {}).get("Ra226"), 7),
-                              _number(item.get("activity_bq_kg", {}).get("K40"), 7)])
+                              _number(_reported_activity(item, "Th232"), 7),
+                              _number(_reported_activity(item, "Ra226"), 7),
+                              _number(_reported_activity(item, "K40"), 7)])
     activity_table = Table(activity_data, colWidths=[65 * mm, 35 * mm, 48 * mm, 48 * mm, 48 * mm], repeatRows=1)
     activity_table.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), font_name), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#176B70")),
@@ -754,7 +794,7 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
         series = [("Th232", "Th-232", colors.HexColor("#3B6B82")),
                   ("Ra226", "Ra-226", colors.HexColor("#CF7A14")),
                   ("K40", "K-40", colors.HexColor("#3F8F3A"))]
-        finite = [item.get("activity_bq_kg", {}).get(key) for item in results for key, _, _ in series]
+        finite = [_reported_activity(item, key) for item in results for key, _, _ in series]
         maximum = max([value for value in finite if isinstance(value, (int, float)) and math.isfinite(value)] or [1]) * 1.12
         for tick in range(6):
             yy = bottom + chart_height * tick / 5
@@ -765,7 +805,7 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
         for index, item in enumerate(results):
             center = left + group_width * (index + 0.5)
             for series_index, (key, _, color) in enumerate(series):
-                value = item.get("activity_bq_kg", {}).get(key)
+                value = _reported_activity(item, key)
                 value = value if isinstance(value, (int, float)) and math.isfinite(value) else 0
                 bar_height = value / maximum * chart_height
                 chart.add(Rect(center + (series_index - 1) * bar_width - bar_width * 0.42, bottom,
@@ -776,7 +816,13 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
             chart.add(Rect(legend_x, 215, 12, 9, fillColor=color, strokeColor=None))
             chart.add(String(legend_x + 17, 216, label, fontName=font_name, fontSize=8))
         story.extend([Spacer(1, 5 * mm), Paragraph(_tr(language, "activity_comparison"), body_style), chart])
-    story.extend([Spacer(1, 5 * mm), Paragraph(note, body_style)])
+    evidence_line = (
+        f"workflow_status={analysis.get('quality', {}).get('workflow_status')} / "
+        f"counting_uncertainty_scope=counting_statistics_only / "
+        f"evidence_sha256={analysis.get('evidence', {}).get('snapshot_sha256') or 'not-attached'}"
+    )
+    story.extend([Spacer(1, 5 * mm), Paragraph(note, body_style), Spacer(1, 2 * mm),
+                  Paragraph(evidence_line, body_style)])
     efficiency = analysis.get("standard", {}).get("efficiency_calibration", {})
     if efficiency.get("points"):
         probability_stream = _standard_probability_image(analysis.get("standard", {}), language)

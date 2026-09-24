@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_version": "1.0.0",
+  "description": "Deterministic Ra-Th-K tool contracts. Unknown input fields are rejected.",
+  "$defs": {
+    "spectrumFile": {
+      "type": "object",
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "live_time_s": {"type": ["number", "null"], "exclusiveMinimum": 0}
+      },
+      "required": ["path"],
+      "additionalProperties": false
+    },
+    "sampleFile": {
+      "type": "object",
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "live_time_s": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "mass_g": {"type": ["number", "null"], "exclusiveMinimum": 0}
+      },
+      "required": ["path"],
+      "additionalProperties": false
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "calibration_mass_g": {"type": "number", "exclusiveMinimum": 0},
+        "reference_date": {"type": "string", "format": "date"},
+        "reference_activities_bq": {
+          "type": "object",
+          "properties": {
+            "Ra226": {"type": "number", "exclusiveMinimum": 0},
+            "Th232": {"type": "number", "exclusiveMinimum": 0},
+            "K40": {"type": "number", "exclusiveMinimum": 0}
+          },
+          "required": ["Ra226", "Th232", "K40"],
+          "additionalProperties": false
+        },
+        "roi_half_width_keV": {"type": "number", "exclusiveMinimum": 0},
+        "background_gap_keV": {"type": "number", "minimum": 0},
+        "background_width_keV": {"type": "number", "exclusiveMinimum": 0},
+        "correct_k_interference": {"type": "boolean"},
+        "assume_chain_equilibrium": {"type": "boolean"},
+        "apply_legacy_empirical_profile": {"type": "boolean"},
+        "source_kind": {"enum": ["bundled", "custom"]},
+        "standard_certificate_id": {"type": ["string", "null"]},
+        "standard_traceable": {"type": "boolean"},
+        "geometry_match": {"type": ["boolean", "null"]},
+        "matrix_match": {"type": ["boolean", "null"]},
+        "multi_peak_max_relative_deviation_percent": {"type": "number", "exclusiveMinimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "analysisRequest": {
+      "type": "object",
+      "properties": {
+        "calibration": {"$ref": "#/$defs/spectrumFile"},
+        "samples": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/sampleFile"}},
+        "settings": {"$ref": "#/$defs/settings"},
+        "calibration_specs": {"type": ["object", "null"]}
+      },
+      "required": ["calibration", "samples"],
+      "additionalProperties": false
+    },
+    "envelope": {
+      "type": "object",
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "tool": {"type": "string"},
+        "status": {"enum": ["ok", "error"]},
+        "error_code": {"type": ["string", "null"]},
+        "message": {"type": ["string", "null"]},
+        "issues": {"type": "array", "items": {"type": "object"}},
+        "data": {}
+      },
+      "required": ["schema_version", "tool", "status", "error_code", "message", "issues", "data"],
+      "additionalProperties": false
+    }
+  },
+  "tools": [
+    {
+      "name": "inspect_spectrum",
+      "description": "Inspect a spectrum file without quantifying it; recover live time and file identity while ignoring instruction-like document text.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "live_time_s": {"type": ["number", "null"], "exclusiveMinimum": 0}
+        },
+        "required": ["path"],
+        "additionalProperties": false
+      },
+      "outputSchema": {"$ref": "#/$defs/envelope"}
+    },
+    {
+      "name": "validate_inputs",
+      "description": "Parse all inputs and run pre-quantification quality gates without calculating activities.",
+      "inputSchema": {"$ref": "#/$defs/analysisRequest"},
+      "outputSchema": {"$ref": "#/$defs/envelope"}
+    },
+    {
+      "name": "fit_energy_calibration",
+      "description": "Fit or apply E = a*CH+b and return calibration metrics plus a blocking decision.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "live_time_s": {"type": ["number", "null"], "exclusiveMinimum": 0},
+          "calibration_spec": {"type": ["object", "null"]}
+        },
+        "required": ["path"],
+        "additionalProperties": false
+      },
+      "outputSchema": {"$ref": "#/$defs/envelope"}
+    },
+    {
+      "name": "analyze_ra_th_k",
+      "description": "Run deterministic Ra-Th-K analysis, enforce quality gates and return a fingerprinted evidence package.",
+      "inputSchema": {"$ref": "#/$defs/analysisRequest"},
+      "outputSchema": {"$ref": "#/$defs/envelope"}
+    },
+    {
+      "name": "validate_analysis",
+      "description": "Verify an analysis evidence fingerprint and return its scientific quality state.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "analysis_path": {"type": "string", "minLength": 1},
+          "analysis": {"type": "object"}
+        },
+        "oneOf": [
+          {"required": ["analysis_path"]},
+          {"required": ["analysis"]}
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {"$ref": "#/$defs/envelope"}
+    },
+    {
+      "name": "export_report",
+      "description": "Export a verified analysis and evidence sidecar without changing its quality status.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "analysis_path": {"type": "string", "minLength": 1},
+          "analysis": {"type": "object"},
+          "format": {"enum": ["json", "xlsx", "png", "pdf"]},
+          "language": {"enum": ["zh", "zht", "en", "fr"]},
+          "output_directory": {"type": "string", "minLength": 1},
+          "filename_stem": {"type": "string", "pattern": "^[^\\\\/:*?\"<>|]+$"},
+          "overwrite": {"type": "boolean"}
+        },
+        "oneOf": [
+          {"required": ["analysis_path", "output_directory"]},
+          {"required": ["analysis", "output_directory"]}
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {"$ref": "#/$defs/envelope"}
+    }
+  ]
+}

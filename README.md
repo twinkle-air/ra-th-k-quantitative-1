@@ -1,6 +1,8 @@
 # Ra–Th–K Quantitative 1
 
-> 当前版本：**v1.4.0（2026-09-10）** · 同一 Skill 的增量更新，不是新建项目
+> 当前版本：**v1.5.1（2026-09-23）** · 同一 Skill 的增量更新，不是新建项目
+
+[English README](README_EN.md) · 简体中文
 
 <p align="center">
   <img src="assets/project-icon.png" alt="Ra–Th–K Quantitative 1 图标" width="220">
@@ -10,7 +12,32 @@
 
 > 本项目是辅助计算与可追溯报告工具，不是经认证的实验室测量系统。使用者仍需对样品制备、标准源溯源、测量几何一致性、衰变链平衡、探测限和不确定度负责。
 
-![Ra–Th–K Quantitative 1 最新界面](assets/ui-verification.png)
+![Ra–Th–K Quantitative 1 最新界面（2026-09-24 本地运行实拍）](assets/ui-verification.png)
+
+## 2026-09-24 仓库同步更新（仍为 v1.5.1）
+
+- 增加 [核数据逐值审计状态](references/NUCLEAR_DATA_AUDIT.md) 和可复算的 ⁴⁰K 参数敏感性脚本；生产核数据保持不变。新版 DDEP 值与现行值有差异，未把“可追溯核查指针”误写成“全表已核准”。
+- 增加[公开独立数据源筛选记录](evaluation/PUBLIC_DATA.md)：IAEA 土壤谱练习需登录；可公开下载的 Zenodo 包经检查只有处理报告、没有逐道谱。**尚无合格的公开端到端盲样，不能报告盲样准确度。**
+- 独立评测入口现在校验原始样品谱与刻度源谱是否绑定分析快照，并要求单独的能量刻度证据及显式刻度参数；用户对独立性的声明仍须人工核实。
+- 记录当前 Windows/CPython 3.12 运行环境的[精确依赖版本](requirements-lock-py312.txt)，不将其描述为跨平台可复现的哈希锁。两宿主三组消融的真实轨迹和固定发布 commit 仍待完成。
+
+## v1.5.1 更新内容
+
+- Web、桌面与 CLI/MCP 所有正式导出共用快照验证和阻断质量门；被篡改、缺失证据或处于阻断状态的结果不能生成报告，异常以明确错误返回；
+- 分离 `estimated_activity_bq_kg`（计算估算值）与 `reportable_activity_bq_kg`（满足程序报告条件的值）。条件性或非检出结果不再混入正式活度/含量表格和报告模板；模板可用显式 `estimated` 占位符呈现估算值；
+- 刻度源谱没有采集时间时，注明参考日活度未衰变校正至测量时刻，并降级为条件性结果；
+- 证据快照标明证书、溯源和几何等为用户声明，核数据表为每个采用值提供版本化核查指针并如实注明尚未逐值独立核实；
+- 增加独立科学样本与跨宿主原始轨迹评测入口、空白样本与导出质量门回归测试。真实盲样准确度和两个宿主的实测效果**仍待数据采集，不宣称已验证**。
+
+## v1.5.0 更新内容
+
+- 新增六个确定性 Agent 工具及统一 JSON Schema：谱文件检查、输入预检、能量刻度、Ra–Th–K 定量、结果验证和报告导出；同时提供 CLI 与 stdio MCP 两种调用方式；
+- 将活时间、质量、能量刻度失败升级为不可绕过的阻断门；将标准源溯源、几何/基质匹配、衰变链平衡、多峰一致性和非检出状态变成机器可读的条件性结果；
+- 每次程序化分析生成 RFC 8785 规范化快照和 SHA-256 证据指纹，记录输入文件、参数、核数据表、算法与依赖版本；篡改结果或核数据后验证失败；
+- 将原“标准不确定度”明确改为“计数统计标准不确定度”，列出已纳入/未纳入分量，并明确当前不提供完整合成测量不确定度；
+- 移除 K-40 效率外推中的固定 `-0.8` 指数，改用当前标准源有效峰拟合的效率曲线斜率；旧五样品经验修正标记为调参证据，只允许精确匹配的内置标准源；
+- `verify.py` 可自动选择项目运行环境并检查结构、依赖、JSON Schema、编译、CLI/MCP、质量门、证据防篡改和全部既有导出测试；
+- 增加方法依据、工具协议、质量门、验证边界和比赛评测清单；外部盲样与两个真实宿主的实测结果明确保留为待完成项，不用模拟结果冒充。
 
 ## v1.4.0 更新内容
 
@@ -126,6 +153,27 @@ python scripts/start_app.py
 
 若不想安装到任何 Agent，也可在 clone 后直接执行本步，将项目当作独立本地 Web 应用使用。默认端口为 `8000`；需要更换端口时可使用 `python scripts/start_app.py --port 8010`。
 
+### 4. 让 Agent 直接调用确定性工具
+
+首次安装依赖并验证：
+
+```bash
+python scripts/verify.py --install
+```
+
+查看工具契约并调用（输入、输出都是固定 JSON）：
+
+```bash
+python scripts/rtk_tool.py validate_inputs --describe
+python scripts/rtk_tool.py validate_inputs --input request.json
+python scripts/rtk_tool.py analyze_ra_th_k --input request.json --output analysis.json
+python scripts/rtk_tool.py validate_analysis --input validate.json
+```
+
+支持 MCP 的宿主可将 `python scripts/mcp_server.py` 配置为 stdio server。完整请求示例、错误码与宿主配置见 [工具协议](references/TOOL_PROTOCOL.md)。无论通过何种宿主，推荐调用顺序都是 `inspect → validate_inputs → analyze → validate_analysis → export`，并且不得绕过 `blocked` 状态。
+
+当前已完成项与仍需真实盲样/宿主运行的数据缺口见 [v1.5.0 实施清单审计](references/IMPLEMENTATION_CHECKLIST.md)。
+
 ## 在不同 Agent 中调用
 
 本仓库遵循开放的 [Agent Skills 规范](https://agentskills.io/specification)，入口文件为根目录 `SKILL.md`。
@@ -169,11 +217,13 @@ Ra-226 和 Th-232 通常通过子体 γ 线间接估算，因此“实际发射�
 
 ## 开发与验证
 
-运行结构检查、Python 编译和回归测试：
+运行依赖诊断、结构检查、JSON Schema 校验、Python 编译和回归测试：
 
 ```bash
 python scripts/verify.py
 ```
+
+若当前 Python 缺依赖，验证器会给出明确诊断；首次运行可直接执行 `python scripts/verify.py --install`，无需手工激活 `.runtime`。
 
 应用代码位于 `assets/app`，其独立启动方式为：
 
@@ -190,7 +240,9 @@ ra-th-k-quantitative-1/
 ├── SKILL.md                 # Agent Skill 入口与行为约束
 ├── agents/openai.yaml       # Codex/OpenAI 界面元数据
 ├── assets/app/              # FastAPI 分析应用、默认源和测试
-├── references/              # 方法、输入质控、兼容性和排障说明
+├── schemas/                 # 六个工具的 JSON Schema 注册表
+├── evaluation/              # Skill 行为评测与消融用例
+├── references/              # 方法、质量门、工具协议、验证边界和排障说明
 ├── scripts/                 # 安装、启动和验证工具
 ├── README.md
 └── LICENSE
