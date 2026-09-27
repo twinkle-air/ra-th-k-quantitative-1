@@ -18,17 +18,11 @@ Ra–Th–K Quantitative 1 is an Agent Skill for quantitative radium, thorium, a
 
 - Quality-control states and warnings now follow the selected interface language. The multi-sample chart distinguishes conditional estimates from reportable activities rather than presenting estimates as formal results.
 - The bundled default calibration source no longer receives the inaccurate "missing complete certificate identity" warning; custom sources retain the traceability warning. Bundled-source provenance does not establish redistribution rights or independently verified metrological traceability.
-- Added a [cross-host behavior protocol](evaluation/BEHAVIOR_PROTOCOL.md) and a human-adjudicated scoring entry point. The same five tasks can be run on two real hosts under no-Skill, instruction-only, and full-tool conditions while preserving the raw prompts, fixtures, tool traces, final answers, and case-level judgments.
-- The scorer aggregates human labels tied to exact raw-evidence quotes and checks prompt, fixture, and matrix consistency. It **does not substitute for real-host experiments or independent scientific blind samples**. Neither result set is available yet.
-- The [release audit](references/RELEASE_AUDIT.md) records unresolved redistribution rights for the bundled source. This update is not a competition-frozen version with completed blind-sample and cross-host validation.
 
-## Repository sync on 2026-09-24 (still v1.5.1)
+## Data and Dependencies
 
-- Added a [value-by-value nuclear-data audit status](references/NUCLEAR_DATA_AUDIT.md) and a reproducible K-40 sensitivity script. The production nuclear-data table was **not** replaced; its individual values have not all been independently verified.
-- Documented the [public independent-data search](evaluation/PUBLIC_DATA.md). No qualifying open, end-to-end blind-sample dataset has been secured, so no blind-sample accuracy is claimed.
-- Tightened the independent evaluation entry point: raw sample and standard spectra must be bound to the analysis snapshot, with separate energy-calibration evidence and explicit calibration parameters. User declarations of independence still require manual checking.
-- Recorded [exact package versions for the current Windows/CPython 3.12 environment](requirements-lock-py312.txt). This is **not** a cross-platform hash-locked environment. The v1.5.1 baseline has been pushed; real two-host, three-condition traces and a competition-frozen commit remain pending.
-- Replaced the interface image with a screenshot of the current locally running web page.
+- The [value-by-value nuclear-data audit status](references/NUCLEAR_DATA_AUDIT.md) and a K-40 sensitivity script document the adopted values and outstanding checks. The production table was not automatically replaced, and its values are not claimed to be fully independently verified.
+- [Exact package versions](requirements-lock-py312.txt) describe the current Windows/CPython 3.12 environment; they are not a cross-platform, hash-locked dependency set.
 
 ## What's New in v1.5.1
 
@@ -36,7 +30,7 @@ Ra–Th–K Quantitative 1 is an Agent Skill for quantitative radium, thorium, a
 - Separated `estimated_activity_bq_kg` from `reportable_activity_bq_kg`. Conditional and non-detected results no longer appear as formally reportable activity or concentration values; templates may explicitly request estimated values.
 - An efficiency standard without acquisition time is marked as not decay-corrected from reference date to measurement time, yielding a conditional result.
 - Evidence snapshots distinguish user-declared certificates, traceability, and geometry from independently verified facts. Nuclear-data entries include versioned check pointers without claiming that all values have been audited.
-- Added independent scientific evaluation scaffolding, cross-host trace collection entry points, blank-sample and export-gate regression tests. Real blind-sample accuracy and results on two hosts remain unmeasured.
+- Added blank-sample and export-gate regression tests. Software tests do not establish quantitative accuracy on independent samples.
 
 ## What's New in v1.5.0
 
@@ -236,7 +230,7 @@ ra-th-k-quantitative-1/
 - Values below detection capability must not be treated as reliable quantitative results without detection-limit evidence.
 - For a custom calibration source, the user is responsible for certificate-activity decay correction, nuclide information, and geometry consistency.
 - Any change to algorithms or the default source requires renewed validation with traceable standards or QC samples.
-- The repository does not contain user-supplied sample spectra, competition reports, national-standard PDFs, or other unauthorized third-party materials.
+- The repository does not contain user-supplied sample spectra, national-standard PDFs, or other unauthorized third-party materials.
 
 ## License
 
