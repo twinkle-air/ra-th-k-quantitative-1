@@ -77,6 +77,14 @@ _CONDITIONAL_NOTES = {
     "en": "Conditional/undetected estimates are omitted from formal results; review intermediate values only.",
     "fr": "Les estimations conditionnelles/non détectées sont exclues des résultats officiels ; valeurs intermédiaires à vérifier.",
 }
+_CHART_TEXT = {
+    "zh": {"estimate": "条件性估算（非正式结果）", "chart_note": "浅色柱仅为条件性估算；阻断、未检出及非正值不绘制。", "chart_no_values": "无可绘制的已检出正值。", "chart_no_formal": "本组无可正式报告的比活度。"},
+    "zht": {"estimate": "條件性估算（非正式結果）", "chart_note": "淺色柱僅為條件性估算；阻斷、未檢出及非正值不繪製。", "chart_no_values": "無可繪製的已檢出正值。", "chart_no_formal": "本組無可正式報告的比活度。"},
+    "en": {"estimate": "Conditional estimate (not formal)", "chart_note": "Pale bars are conditional estimates; blocked, undetected and non-positive values are omitted.", "chart_no_values": "No detected positive values to plot.", "chart_no_formal": "No formally reportable specific activity in this group."},
+    "fr": {"estimate": "Estimation conditionnelle (non officielle)", "chart_note": "Les barres pâles sont conditionnelles ; valeurs bloquées, non détectées ou non positives omises.", "chart_no_values": "Aucune valeur positive détectée à tracer.", "chart_no_formal": "Aucune activité massique officiellement recevable dans ce groupe."},
+}
+for _language, _values in _CHART_TEXT.items():
+    _TEXT[_language].update(_values)
 
 
 def _result_note(analysis: dict[str, Any], language: str) -> str:
@@ -115,6 +123,23 @@ def _reported_activity(item: dict[str, Any], nuclide: str) -> float | None:
     if isinstance(status, dict):
         return status.get("reportable_activity_bq_kg")
     return None
+
+
+def _chart_activity(item: dict[str, Any], nuclide: str) -> tuple[float | None, str | None]:
+    """Return a positive detected value with its reportability class; never promote estimates."""
+    if item.get("quality", {}).get("workflow_status") == "blocked":
+        return None, None
+    status = item.get("quality", {}).get("nuclides", {}).get(nuclide) or {}
+    if status.get("detection_status") != "detected" or status.get("workflow_status") == "blocked":
+        return None, None
+    formal = status.get("reportable_activity_bq_kg")
+    if isinstance(formal, (int, float)) and math.isfinite(formal) and formal > 0:
+        return float(formal), "formal"
+    estimate = status.get("estimated_activity_bq_kg")
+    if (status.get("workflow_status") == "conditional_result" and isinstance(estimate, (int, float))
+            and math.isfinite(estimate) and estimate > 0):
+        return float(estimate), "estimate"
+    return None, None
 
 
 def _reported_content(item: dict[str, Any], nuclide: str) -> float | None:
@@ -335,14 +360,33 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
     for column, width in zip("ABCDE", [28, 16, 25, 25, 25]):
         activity.column_dimensions[column].width = width
     if len(analysis.get("results", [])) > 1:
+        activity.cell(1, 7, _tr(language, "chart_note"))
+        chart_kinds = [_chart_activity(item, key)[1] for item in analysis["results"]
+                       for key in ("Th232", "Ra226", "K40")]
+        activity.cell(2, 7, _tr(language, "chart_no_values") if not any(chart_kinds) else (
+            _tr(language, "chart_no_formal") if "formal" not in chart_kinds else ""))
+        activity.column_dimensions["G"].width = 36
+        for column, label in enumerate((
+            _tr(language, "sample"), "Th-232", f"Th-232 {_tr(language, 'estimate')}",
+            "Ra-226", f"Ra-226 {_tr(language, 'estimate')}",
+            "K-40", f"K-40 {_tr(language, 'estimate')}"), 7):
+            activity.cell(3, column, label)
+        for row, item in enumerate(analysis["results"], 4):
+            activity.cell(row, 7, item.get("name"))
+            for key, formal_col, estimate_col in (("Th232", 8, 9), ("Ra226", 10, 11), ("K40", 12, 13)):
+                value, kind = _chart_activity(item, key)
+                if kind:
+                    activity.cell(row, formal_col if kind == "formal" else estimate_col, value)
         chart = BarChart()
         chart.type = "col"
         chart.style = 10
         chart.title = _tr(language, "activity_comparison")
         chart.y_axis.title = "Bq/kg"
         chart.x_axis.title = _tr(language, "sample")
-        chart.add_data(Reference(activity, min_col=3, max_col=5, min_row=3, max_row=activity.max_row), titles_from_data=True)
-        chart.set_categories(Reference(activity, min_col=1, min_row=4, max_row=activity.max_row))
+        chart.add_data(Reference(activity, min_col=8, max_col=13, min_row=3, max_row=activity.max_row), titles_from_data=True)
+        chart.set_categories(Reference(activity, min_col=7, min_row=4, max_row=activity.max_row))
+        for plotted, color in zip(chart.series, ("3B6B82", "A9C3D0", "CF7A14", "EDC596", "3F8F3A", "A8D2A5")):
+            plotted.graphicalProperties.solidFill = color
         chart.height = 10
         chart.width = 22
         activity.add_chart(chart, "A10")
@@ -657,29 +701,41 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
 
     if len(rows) > 1:
         draw.text((50, y), f"{_tr(language, 'activity_comparison')} (Bq/kg)", font=bold, fill="#17324D")
-        chart_top, chart_bottom, chart_left, chart_right = y + 50, y + 410, 130, 1530
-        series = [("Th232", "Th-232", "#3B6B82"), ("Ra226", "Ra-226", "#CF7A14"), ("K40", "K-40", "#3F8F3A")]
-        finite = [_reported_activity(item, key) for item in rows for key, _, _ in series]
-        maximum = max([value for value in finite if isinstance(value, (int, float)) and math.isfinite(value)] or [1]) * 1.12
-        for tick in range(6):
-            yy = chart_bottom - (chart_bottom - chart_top) * tick / 5
-            draw.line((chart_left, yy, chart_right, yy), fill="#D6E0DD", width=1)
-            draw.text((chart_left - 16, yy), _number(maximum * tick / 5, 4), font=small, fill="#627782", anchor="rm")
-        group_width = (chart_right - chart_left) / len(rows)
-        bar_width = min(42, group_width / 5)
-        for index, item in enumerate(rows):
-            center = chart_left + group_width * (index + 0.5)
-            for series_index, (key, _, color) in enumerate(series):
-                value = _reported_activity(item, key)
-                value = value if isinstance(value, (int, float)) and math.isfinite(value) else 0
-                bar_height = value / maximum * (chart_bottom - chart_top)
-                x = center + (series_index - 1) * bar_width - bar_width * 0.42
-                draw.rectangle((x, chart_bottom - bar_height, x + bar_width * 0.84, chart_bottom), fill=color)
-            draw.text((center, chart_bottom + 25), str(item.get("name"))[:14], font=small, fill="#344C58", anchor="mm")
-        for index, (_, label, color) in enumerate(series):
+        chart_top, chart_bottom, chart_left, chart_right = y + 88, y + 405, 130, 1530
+        series = [("Th232", "Th-232", "#3B6B82", "#A9C3D0"),
+                  ("Ra226", "Ra-226", "#CF7A14", "#EDC596"),
+                  ("K40", "K-40", "#3F8F3A", "#A8D2A5")]
+        plotted = [_chart_activity(item, key) for item in rows for key, _, _, _ in series]
+        finite = [value for value, _ in plotted if value is not None]
+        if finite:
+            maximum = max(finite) * 1.12
+            for tick in range(6):
+                yy = chart_bottom - (chart_bottom - chart_top) * tick / 5
+                draw.line((chart_left, yy, chart_right, yy), fill="#D6E0DD", width=1)
+                draw.text((chart_left - 16, yy), _number(maximum * tick / 5, 4), font=small, fill="#627782", anchor="rm")
+            group_width = (chart_right - chart_left) / len(rows)
+            bar_width = min(42, group_width / 5)
+            for index, item in enumerate(rows):
+                center = chart_left + group_width * (index + 0.5)
+                for series_index, (key, _, color, pale) in enumerate(series):
+                    value, kind = _chart_activity(item, key)
+                    if value is None:
+                        continue
+                    bar_height = value / maximum * (chart_bottom - chart_top)
+                    x = center + (series_index - 1) * bar_width - bar_width * 0.42
+                    draw.rectangle((x, chart_bottom - bar_height, x + bar_width * 0.84, chart_bottom),
+                                   fill=color if kind == "formal" else pale,
+                                   outline=color if kind == "estimate" else None, width=2)
+                draw.text((center, chart_bottom + 25), str(item.get("name"))[:14], font=small, fill="#344C58", anchor="mm")
+        else:
+            draw.text((width / 2, y + 230), _tr(language, "chart_no_values"), font=bold, fill="#627782", anchor="mm")
+        for index, (_, label, color, _) in enumerate(series):
             legend_x = 570 + index * 190
             draw.rectangle((legend_x, y + 8, legend_x + 22, y + 28), fill=color)
             draw.text((legend_x + 30, y + 19), label, font=small, fill="#344C58", anchor="lm")
+        if finite and not any(kind == "formal" for _, kind in plotted):
+            draw.text((chart_left, y + 52), _tr(language, "chart_no_formal"), font=small, fill="#9B5B1E")
+        draw.text((chart_left, y + 445), _tr(language, "chart_note"), font=small, fill="#9B5B1E")
         y += chart_height
 
     peak_headers = [_tr(language, "sample"), _tr(language, "analyte_emitter"), _tr(language, "reference"), _tr(language, "observed_short"), _tr(language, "converted_short"), _tr(language, "gross"), _tr(language, "background"), _tr(language, "net")]
@@ -791,31 +847,41 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
         results = analysis["results"]
         chart = Drawing(700, 235)
         left, bottom, chart_width, chart_height = 55, 42, 620, 155
-        series = [("Th232", "Th-232", colors.HexColor("#3B6B82")),
-                  ("Ra226", "Ra-226", colors.HexColor("#CF7A14")),
-                  ("K40", "K-40", colors.HexColor("#3F8F3A"))]
-        finite = [_reported_activity(item, key) for item in results for key, _, _ in series]
-        maximum = max([value for value in finite if isinstance(value, (int, float)) and math.isfinite(value)] or [1]) * 1.12
-        for tick in range(6):
-            yy = bottom + chart_height * tick / 5
-            chart.add(Line(left, yy, left + chart_width, yy, strokeColor=colors.HexColor("#D6E0DD"), strokeWidth=0.5))
-            chart.add(String(left - 8, yy - 3, _number(maximum * tick / 5, 4), textAnchor="end", fontName=font_name, fontSize=7))
-        group_width = chart_width / len(results)
-        bar_width = min(18, group_width / 5)
-        for index, item in enumerate(results):
-            center = left + group_width * (index + 0.5)
-            for series_index, (key, _, color) in enumerate(series):
-                value = _reported_activity(item, key)
-                value = value if isinstance(value, (int, float)) and math.isfinite(value) else 0
-                bar_height = value / maximum * chart_height
-                chart.add(Rect(center + (series_index - 1) * bar_width - bar_width * 0.42, bottom,
-                               bar_width * 0.84, bar_height, fillColor=color, strokeColor=None))
-            chart.add(String(center, 24, str(item.get("name"))[:18], textAnchor="middle", fontName=font_name, fontSize=7))
-        for index, (_, label, color) in enumerate(series):
-            legend_x = 235 + index * 105
-            chart.add(Rect(legend_x, 215, 12, 9, fillColor=color, strokeColor=None))
-            chart.add(String(legend_x + 17, 216, label, fontName=font_name, fontSize=8))
-        story.extend([Spacer(1, 5 * mm), Paragraph(_tr(language, "activity_comparison"), body_style), chart])
+        series = [("Th232", "Th-232", colors.HexColor("#3B6B82"), colors.HexColor("#A9C3D0")),
+                  ("Ra226", "Ra-226", colors.HexColor("#CF7A14"), colors.HexColor("#EDC596")),
+                  ("K40", "K-40", colors.HexColor("#3F8F3A"), colors.HexColor("#A8D2A5"))]
+        plotted = [_chart_activity(item, key) for item in results for key, _, _, _ in series]
+        finite = [value for value, _ in plotted if value is not None]
+        story.extend([Spacer(1, 5 * mm), Paragraph(_tr(language, "activity_comparison"), body_style)])
+        if finite:
+            maximum = max(finite) * 1.12
+            for tick in range(6):
+                yy = bottom + chart_height * tick / 5
+                chart.add(Line(left, yy, left + chart_width, yy, strokeColor=colors.HexColor("#D6E0DD"), strokeWidth=0.5))
+                chart.add(String(left - 8, yy - 3, _number(maximum * tick / 5, 4), textAnchor="end", fontName=font_name, fontSize=7))
+            group_width = chart_width / len(results)
+            bar_width = min(18, group_width / 5)
+            for index, item in enumerate(results):
+                center = left + group_width * (index + 0.5)
+                for series_index, (key, _, color, pale) in enumerate(series):
+                    value, kind = _chart_activity(item, key)
+                    if value is None:
+                        continue
+                    bar_height = value / maximum * chart_height
+                    chart.add(Rect(center + (series_index - 1) * bar_width - bar_width * 0.42, bottom,
+                                   bar_width * 0.84, bar_height, fillColor=color if kind == "formal" else pale,
+                                   strokeColor=color if kind == "estimate" else None, strokeWidth=0.8))
+                chart.add(String(center, 24, str(item.get("name"))[:18], textAnchor="middle", fontName=font_name, fontSize=7))
+            for index, (_, label, color, _) in enumerate(series):
+                legend_x = 235 + index * 105
+                chart.add(Rect(legend_x, 215, 12, 9, fillColor=color, strokeColor=None))
+                chart.add(String(legend_x + 17, 216, label, fontName=font_name, fontSize=8))
+            story.append(chart)
+            if not any(kind == "formal" for _, kind in plotted):
+                story.append(Paragraph(_tr(language, "chart_no_formal"), body_style))
+        else:
+            story.append(Paragraph(_tr(language, "chart_no_values"), body_style))
+        story.append(Paragraph(_tr(language, "chart_note"), body_style))
     evidence_line = (
         f"workflow_status={analysis.get('quality', {}).get('workflow_status')} / "
         f"counting_uncertainty_scope=counting_statistics_only / "

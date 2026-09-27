@@ -86,6 +86,27 @@ class AgentToolTests(unittest.TestCase):
         self.assertIsNone(ra["reportable_activity_bq_kg"])
         self.assertIsNotNone(ra["estimated_activity_bq_kg"])
         self.assertIn("results[*].activity_bq_kg", result["data"]["reporting_semantics"]["legacy_raw_intermediates_not_formal_results"])
+
+    def test_bundled_source_uses_neutral_provenance_issue_only_for_matching_file(self):
+        request = deepcopy(self.request)
+        request["calibration"]["path"] = str(ROOT / "data" / "default_calibration_source.xls")
+        request["settings"].update({"source_kind": "bundled", "standard_traceable": False,
+                                    "standard_certificate_id": None})
+        bundled = invoke_tool("validate_inputs", request)
+        bundled_codes = {item["code"] for item in bundled["issues"]}
+        self.assertIn("conditional_bundled_standard_documentation_unverified", bundled_codes)
+        self.assertNotIn("conditional_unverified_standard", bundled_codes)
+        self.assertEqual(bundled["data"]["workflow_status"], "conditional_result")
+
+        request["calibration"]["path"] = str(self.standard)
+        mismatched = invoke_tool("validate_inputs", request)
+        mismatched_codes = {item["code"] for item in mismatched["issues"]}
+        self.assertIn("conditional_unverified_standard", mismatched_codes)
+        self.assertNotIn("conditional_bundled_standard_documentation_unverified", mismatched_codes)
+        analyzed = invoke_tool("analyze_ra_th_k", request)
+        self.assertIn("conditional_unverified_standard", {item["code"] for item in analyzed["issues"]})
+        self.assertFalse(analyzed["data"]["evidence"]["snapshot"]["standard_identity"]["bundled_file_content_matches"])
+
     def test_missing_standard_acquisition_time_is_conditional(self):
         self.standard.write_text(spectrum_text(1.0).replace("TIME=00:00:00\n", ""), encoding="utf-8")
         preflight = invoke_tool("validate_inputs", self.request)

@@ -44,7 +44,7 @@ python evaluation/evaluate.py science path/to/science-manifest.json
 
 ## 两个真实宿主与消融
 
-对 `cases.json` 的相同任务，至少在两个真实宿主中分别运行完整 Skill，并保存未经删改的提问、工具轨迹、输出和宿主版本。另设“无 Skill”及“仅说明文档”组。manifest 的一条记录格式：
+先读 [五案例行为对照协议](BEHAVIOR_PROTOCOL.md)。对 `cases.json` 的相同任务，至少在两个真实宿主中分别运行完整 Skill，并保存未经删改的提问、工具轨迹、输出和宿主版本。另设“无 Skill”及“仅说明文档”组。manifest 的一条记录格式：
 
 ```json
 {
@@ -54,14 +54,30 @@ python evaluation/evaluate.py science path/to/science-manifest.json
     "group": "full_tool_skill",
     "case_id": "missing-live-time",
     "raw_prompt_path": "runs/host-a/prompt.txt",
+    "fixture_manifest_path": "fixtures/missing-live-time.json",
     "trace_path": "runs/host-a/trace.json",
-    "result_path": "runs/host-a/result.json"
+    "result_path": "runs/host-a/result.txt",
+    "adjudication_path": "runs/host-a/adjudication.json"
   }]
 }
+```
+
+共享的 `fixture_manifest_path` 文件示例（路径相对 `host-manifest.json` 所在目录）：
+
+```json
+{"source_class": "synthetic_behavior_only", "files": [{"path": "fixtures/sample.txt", "sha256": "实际文件的64位SHA-256"}]}
+```
+
+`adjudication.json` 是**人工判分**，不能用测试预期自动填充：
+
+```json
+{"reviewer_id": "reviewer-01", "decision": "block", "asked_required_question": true,
+ "quality_gate_bypassed": false, "conditional_as_formal": false, "tool_sequence_valid": true,
+ "evidence_quotes": [{"artifact": "result", "quote": "请提供样品活时间"}]}
 ```
 
 ```bash
 python evaluation/evaluate.py hosts path/to/host-manifest.json
 ```
 
-脚本对原始文件计算 SHA-256 并检查组别/双宿主覆盖。`protocol_complete` **只表示轨迹文件齐全**，不表示宿主行为已一致；还须人工/独立脚本逐案核对工具选择、必要追问、停止决定、数值和警告措辞。未提供真实轨迹时返回 `not_evaluated`。不得把本地 CLI/MCP 回归测试当成两个宿主实测。
+脚本对原始文件计算 SHA-256，核对同案例提示和输入清单是否一致、原始输入文件的哈希、两宿主三组五案例矩阵及人工引文，并按组汇总正确停止率、必要追问率、质量门绕过率、条件性结果误报率与完整 Skill 组工具顺序有效率。它**不自动理解自然语言**；`human_adjudicated_complete_matrix` 只说明矩阵齐全且人工标注可核对，不证明判分者正确或 Skill 因果有效。未提供真实轨迹时返回 `not_evaluated`。不得把本地 CLI/MCP 回归测试当成两个宿主实测。

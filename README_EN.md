@@ -1,6 +1,6 @@
 # Ra–Th–K Quantitative 1
 
-> Current version: **v1.5.1 (2026-09-23)** · An incremental update to the same Skill, not a new project
+> Current version: **v1.5.2 (2026-09-27)** · An incremental update to the same Skill, not a new project
 
 [简体中文 README](README.md) · English
 
@@ -12,14 +12,22 @@ Ra–Th–K Quantitative 1 is an Agent Skill for quantitative radium, thorium, a
 
 > This project is an auxiliary calculation and traceable-reporting tool, not a certified laboratory measurement system. The user remains responsible for sample preparation, calibration-source traceability, measurement-geometry consistency, decay-chain equilibrium, detection limits, and uncertainty evaluation.
 
-![Current local Ra–Th–K Quantitative 1 interface, captured on 2026-09-24](assets/ui-verification.png)
+![Current Ra–Th–K Quantitative 1 interface](assets/ui-verification.png)
+
+## What's New in v1.5.2 (2026-09-27)
+
+- Quality-control states and warnings now follow the selected interface language. The multi-sample chart distinguishes conditional estimates from reportable activities rather than presenting estimates as formal results.
+- The bundled default calibration source no longer receives the inaccurate "missing complete certificate identity" warning; custom sources retain the traceability warning. Bundled-source provenance does not establish redistribution rights or independently verified metrological traceability.
+- Added a [cross-host behavior protocol](evaluation/BEHAVIOR_PROTOCOL.md) and a human-adjudicated scoring entry point. The same five tasks can be run on two real hosts under no-Skill, instruction-only, and full-tool conditions while preserving the raw prompts, fixtures, tool traces, final answers, and case-level judgments.
+- The scorer aggregates human labels tied to exact raw-evidence quotes and checks prompt, fixture, and matrix consistency. It **does not substitute for real-host experiments or independent scientific blind samples**. Neither result set is available yet.
+- The [release audit](references/RELEASE_AUDIT.md) records unresolved redistribution rights for the bundled source. This update is not a competition-frozen version with completed blind-sample and cross-host validation.
 
 ## Repository sync on 2026-09-24 (still v1.5.1)
 
 - Added a [value-by-value nuclear-data audit status](references/NUCLEAR_DATA_AUDIT.md) and a reproducible K-40 sensitivity script. The production nuclear-data table was **not** replaced; its individual values have not all been independently verified.
 - Documented the [public independent-data search](evaluation/PUBLIC_DATA.md). No qualifying open, end-to-end blind-sample dataset has been secured, so no blind-sample accuracy is claimed.
 - Tightened the independent evaluation entry point: raw sample and standard spectra must be bound to the analysis snapshot, with separate energy-calibration evidence and explicit calibration parameters. User declarations of independence still require manual checking.
-- Recorded [exact package versions for the current Windows/CPython 3.12 environment](requirements-lock-py312.txt). This is **not** a cross-platform hash-locked environment. Real traces for the planned two-host, three-condition ablation and a fixed release commit remain pending.
+- Recorded [exact package versions for the current Windows/CPython 3.12 environment](requirements-lock-py312.txt). This is **not** a cross-platform hash-locked environment. The v1.5.1 baseline has been pushed; real two-host, three-condition traces and a competition-frozen commit remain pending.
 - Replaced the interface image with a screenshot of the current locally running web page.
 
 ## What's New in v1.5.1

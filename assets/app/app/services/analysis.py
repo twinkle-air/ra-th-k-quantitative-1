@@ -72,6 +72,7 @@ class AnalysisSettings:
     assume_chain_equilibrium: bool = True
     apply_builtin_validation_profile: bool = False
     source_kind: str = "custom"
+    bundled_file_content_matches: bool = False
     standard_certificate_id: str | None = None
     standard_traceable: bool = False
     geometry_match: bool | None = None
@@ -279,7 +280,9 @@ def analyze_batch(
     settings: AnalysisSettings,
     calibration_specs: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    if settings.apply_builtin_validation_profile and settings.source_kind != "bundled":
+    if settings.apply_builtin_validation_profile and not (
+        settings.source_kind == "bundled" and settings.bundled_file_content_matches
+    ):
         raise ValueError("旧版五样品经验配置只能用于内置刻度源，禁止用于自定义刻度源。")
     if len(samples) != len(sample_masses_g):
         raise ValueError("样品数量与质量数量不一致。")

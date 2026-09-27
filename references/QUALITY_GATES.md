@@ -16,7 +16,8 @@
 
 ## 条件性规则
 
-- 标准源证书标识或溯源确认不完整；
+- 实际文件匹配项目内置刻度源、但程序未独立核验其原始定值和计量溯源文件时，使用 `conditional_bundled_standard_documentation_unverified`：不宣称该源缺少证书，也不将其自动认证为已溯源；
+- 自定义刻度源缺少证书标识或溯源确认时，使用 `conditional_unverified_standard`。CLI/MCP 的 `source_kind=bundled` 声明必须与内置文件内容相匹配，否则按自定义源处理；
 - 几何或基质未明确验证匹配；
 - Ra/Th 衰变链平衡未确认，此时只报告子体等效活度；
 - 目标峰均未超过 Currie 判定阈值，此时 `reportable_activity_bq_kg=null`；
@@ -25,6 +26,8 @@
 - 刻度源谱缺采集日期/时间：参考日活度未能校正至测量时刻，只能输出条件性估算。
 
 `estimated_activity_bq_kg` 是计算得到的数值，供复核；只有单核素状态为 `ready_for_quantification` 且检出时，`reportable_activity_bq_kg` 才有值。条件性、阻断或非检出均使可报告字段为 `null`。PNG/PDF/Excel 与 DOC/DOCX/PDF 模板中的正式结果字段只读取后者；模板若要展示估算值，可明确使用 `sample.ra_estimated_bq_kg` 等带 `estimated` 的占位符并注明条件。Web、桌面、CLI/MCP 导出均先验证快照，阻断状态禁止正式导出。
+
+多样品比活度图的柱形另行按状态分层：深色柱为已检出且可报告的比活度；浅色描边柱为已检出、正值的条件性估算，必须标注“非正式结果”。阻断、未检出和非正值不画为有效柱。图形展示估算值不改变正式结果表格的 `null`，也不放宽导出快照验证门。
 
 证书编号、溯源声明、几何/基质匹配和平衡状态来自用户输入，程序只记录并检查形式，**未独立核验证书或实物**。SHA-256 只能发现快照被改动，不能证明原始声明真实，也不是数字签名。
 

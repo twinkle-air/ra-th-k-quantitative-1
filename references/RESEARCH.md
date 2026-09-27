@@ -13,3 +13,15 @@
 - IAEA-TECDOC-1401：γ谱实验室分析与质量控制，https://pub.iaea.org/MTCD/Publications/PDF/te_1401_web.pdf
 
 这些资料支持“确定性工具契约、可执行质量门、可追溯身份链和保守不确定度命名”的设计。项目策略阈值（例如能量刻度 RMS 0.5 keV、多峰偏差 30%）不是从这些文献中冒充为强制标准，而是明确标为本项目策略，正式应用需由实验室验证并配置。
+
+## 2026-09-27 多样品图表与状态显示核查
+
+- 一手实现依据：`assets/app/app/services/quality.py` 将 `ready_for_quantification`、`conditional_result`、`blocked` 分开，并分别提供 `reportable_activity_bq_kg` 与 `estimated_activity_bq_kg`；`references/QUALITY_GATES.md` 限定后者仅供过程复核。
+- 缺陷定位：旧界面直接输出英文状态码；旧图表仅读取 `reportable_activity_bq_kg`，当多样品均为条件性/阻断时会出现有坐标轴但无柱形。PNG/PDF/Excel 图表沿用相同字段，因此也需同步修复。
+- 设计取舍：状态码在机器记录中保持原样，四语言只改变用户可见标签；图表把已检出的条件性正值单列为浅色“非正式估算”，与深色正式值区分。阻断、未检出和非正值不伪装成零或可报告活度。这是**呈现层的区分**，并非新测量方法或科学准确度验证。既有 ISO 11929-4:2022 与 IAEA-TECDOC-1401 只作为判定/质控边界背景，不将具体配色和图表样式归于标准要求。
+
+## 2026-09-27 内置刻度源质控措辞核查
+
+- 用户提供的《土壤监测效率校准源信息.docx》列有编号 `7NTR-1024`、2015-01-25 参考日期、Ra/Th/K 活度、扩展不确定度及定值方法。这些是项目源资料；仅凭该文件不能判定原始证书不存在，也不能把编号擅自认定为证书编号。资料归属地质调查局是用户提供的说明，程序未独立鉴别出具机构或真伪。
+- JCGM VIM 2.41（BIPM，https://jcgm.bipm.org/vim/en/2.41.html）将计量溯源定义为测量结果经文件化、不中断的校准链关联至参考，并由各环节贡献不确定度。来源说明或机构名称本身不等于已核准完整溯源链。
+- 因此内置文件经内容校验后使用中性代码 `conditional_bundled_standard_documentation_unverified`，说明软件未独立核验原始定值和计量溯源文件，不再断言“缺少证书”；自定义文件在证书标识及溯源声明不完整时保留 `conditional_unverified_standard`。CLI/MCP 不能只凭调用方填写 `source_kind=bundled` 获得内置源分支。

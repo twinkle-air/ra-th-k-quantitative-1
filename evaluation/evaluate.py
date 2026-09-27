@@ -143,23 +143,128 @@ def hosts(manifest: dict[str, Any], base: Path) -> dict[str, Any]:
     if not runs:
         return {"status": "not_evaluated", "reason": "No real host traces were supplied", "run_count": 0}
     groups = {"general_model_without_skill", "instruction_only_skill", "full_tool_skill"}
+    case_definitions = json.loads((Path(__file__).parent / "cases.json").read_text(encoding="utf-8"))
+    core_ids = case_definitions["behavior_core_case_ids"]
+    cases = {item["id"]: item for item in case_definitions["cases"]}
+    decisions = {"proceed", "block", "conditional", "not_detected", "unclear"}
     records = []
+    seen_runs: set[tuple[str, str, str]] = set()
+    prompt_hashes: dict[str, set[str]] = {}
+    fixture_hashes: dict[str, set[str]] = {}
     for run in runs:
         if run.get("group") not in groups or not all(run.get(key) for key in
-            ("host", "host_version", "case_id", "raw_prompt_path", "trace_path", "result_path")):
-            raise ValueError("Every host run needs group, host/version, case, raw prompt, trace and result paths")
+            ("host", "host_version", "case_id", "raw_prompt_path", "fixture_manifest_path", "trace_path", "result_path")):
+            raise ValueError("Every host run needs group, host/version, case, raw prompt, fixture manifest, trace and result paths")
+        if run["case_id"] not in cases:
+            raise ValueError(f"Unknown behavior case: {run['case_id']}")
+        key = (run["host"], run["group"], run["case_id"])
+        if key in seen_runs:
+            raise ValueError(f"Duplicate host/group/case run: {key}")
+        seen_runs.add(key)
         artifacts = {}
-        for key in ("raw_prompt_path", "trace_path", "result_path"):
+        raw_text = {}
+        for key in ("raw_prompt_path", "fixture_manifest_path", "trace_path", "result_path"):
             path = (base / run[key]).resolve()
-            artifacts[key] = hashlib.sha256(path.read_bytes()).hexdigest()
+            payload = path.read_bytes()
+            artifacts[key] = hashlib.sha256(payload).hexdigest()
+            raw_text[key] = payload.decode("utf-8", errors="replace")
+        prompt_hashes.setdefault(run["case_id"], set()).add(artifacts["raw_prompt_path"])
+        fixture_hashes.setdefault(run["case_id"], set()).add(artifacts["fixture_manifest_path"])
+        fixture = json.loads(raw_text["fixture_manifest_path"])
+        if fixture.get("source_class") not in {"synthetic_behavior_only", "user_authorized", "public_licensed"}:
+            raise ValueError(f"Fixture source class is missing or invalid for {run['case_id']}")
+        files = fixture.get("files")
+        if not isinstance(files, list) or not files:
+            raise ValueError(f"Fixture manifest must list frozen input files for {run['case_id']}")
+        for item in files:
+            _verified_file(base, item.get("path"), item.get("sha256"), f"{run['case_id']} fixture input")
+        assessment = None
+        if run.get("adjudication_path"):
+            assessment_path = (base / run["adjudication_path"]).resolve()
+            assessment_bytes = assessment_path.read_bytes()
+            artifacts["adjudication_path"] = hashlib.sha256(assessment_bytes).hexdigest()
+            assessment = json.loads(assessment_bytes)
+            if not str(assessment.get("reviewer_id", "")).strip():
+                raise ValueError(f"Reviewer identity is required for {run['case_id']}")
+            if assessment.get("decision") not in decisions:
+                raise ValueError(f"Invalid decision for {run['case_id']}")
+            for field in ("asked_required_question", "quality_gate_bypassed",
+                          "conditional_as_formal", "tool_sequence_valid"):
+                if assessment.get(field) is not None and not isinstance(assessment[field], bool):
+                    raise ValueError(f"{field} must be boolean or null for {run['case_id']}")
+            quotes = assessment.get("evidence_quotes") or []
+            if not quotes or not any(item.get("artifact") in {"trace", "result"} for item in quotes):
+                raise ValueError(f"At least one exact evidence quote is required for {run['case_id']}")
+            for quote in quotes:
+                source = {"prompt": "raw_prompt_path", "trace": "trace_path", "result": "result_path"}.get(quote.get("artifact"))
+                phrase = quote.get("quote")
+                if source is None or not isinstance(phrase, str) or not phrase.strip() or phrase not in raw_text[source]:
+                    raise ValueError(f"Evidence quote is absent from the stated raw artifact for {run['case_id']}")
+            if run["case_id"] in core_ids:
+                expected = cases[run["case_id"]]
+                required = ["quality_gate_bypassed"]
+                if expected.get("required_question"):
+                    required.append("asked_required_question")
+                if expected.get("conditional_result"):
+                    required.append("conditional_as_formal")
+                if run["group"] == "full_tool_skill":
+                    required.append("tool_sequence_valid")
+                if any(assessment.get(field) is None for field in required):
+                    raise ValueError(f"Core behavior adjudication has missing required labels for {run['case_id']}")
         records.append({"host": run["host"], "host_version": run["host_version"],
-                        "group": run["group"], "case_id": run["case_id"], "sha256": artifacts})
+                        "group": run["group"], "case_id": run["case_id"], "sha256": artifacts,
+                        "adjudication": assessment})
     full_hosts = {item["host"] for item in records if item["group"] == "full_tool_skill"}
     groups_seen = {item["group"] for item in records}
-    return {"status": "protocol_complete" if len(full_hosts) >= 2 and groups_seen == groups else "incomplete",
+    hosts_seen = {item["host"] for item in records}
+    missing_cells = [
+        {"host": host, "group": group, "case_id": case_id}
+        for host in sorted(hosts_seen) for group in sorted(groups) for case_id in core_ids
+        if (host, group, case_id) not in seen_runs
+    ]
+    prompt_mismatches = sorted(case_id for case_id, hashes in prompt_hashes.items()
+                               if case_id in core_ids and len(hashes) != 1)
+    fixture_mismatches = sorted(case_id for case_id, hashes in fixture_hashes.items()
+                                if case_id in core_ids and len(hashes) != 1)
+    missing_adjudications = [
+        {"host": item["host"], "group": item["group"], "case_id": item["case_id"]}
+        for item in records if item["case_id"] in core_ids and item["adjudication"] is None
+    ]
+    summary = {}
+    for group in sorted(groups):
+        selected = [item for item in records if item["group"] == group and item["case_id"] in core_ids
+                    and item["adjudication"] is not None]
+        stop = [item["adjudication"]["decision"] == cases[item["case_id"]]["expected_decision"]
+                for item in selected]
+        questions = [item["adjudication"].get("asked_required_question") for item in selected
+                     if cases[item["case_id"]].get("required_question")]
+        gate = [item["adjudication"].get("quality_gate_bypassed") for item in selected
+                if cases[item["case_id"]].get("blocking_gate")]
+        conditional = [item["adjudication"].get("conditional_as_formal") for item in selected
+                       if cases[item["case_id"]].get("conditional_result")]
+        tools = [item["adjudication"].get("tool_sequence_valid") for item in selected] if group == "full_tool_skill" else []
+        def metric(values: list[bool | None], desired: bool) -> dict[str, float | int | None]:
+            observed = [value for value in values if value is not None]
+            return {"numerator": sum(value is desired for value in observed), "denominator": len(observed),
+                    "rate": (sum(value is desired for value in observed) / len(observed)) if observed else None}
+        summary[group] = {
+            "adjudicated_runs": len(selected),
+            "correct_stop_rate": metric(stop, True),
+            "required_question_rate": metric(questions, True),
+            "quality_gate_bypass_rate": metric(gate, True),
+            "conditional_as_formal_rate": metric(conditional, True),
+            "valid_tool_sequence_rate": metric(tools, True),
+        }
+    complete = (len(full_hosts) >= 2 and groups_seen == groups and not missing_cells
+                and not prompt_mismatches and not fixture_mismatches and not missing_adjudications)
+    return {"status": "human_adjudicated_complete_matrix" if complete else "incomplete",
             "run_count": len(records), "full_skill_host_count": len(full_hosts),
-            "groups_seen": sorted(groups_seen), "records": records,
-            "note": "This inventories immutable raw traces; scientific scoring and host-behavior adjudication remain separate."}
+            "groups_seen": sorted(groups_seen), "core_case_ids": core_ids,
+            "missing_matrix_cells": missing_cells, "prompt_mismatch_case_ids": prompt_mismatches,
+            "fixture_mismatch_case_ids": fixture_mismatches,
+            "missing_adjudications": missing_adjudications, "group_metrics": summary,
+            "records": records,
+            "note": "Scores are human annotations with exact-quote checks, not automated semantic proof or scientific accuracy. Confirm real-host provenance externally."}
 
 
 def main() -> int:

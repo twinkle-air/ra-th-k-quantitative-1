@@ -13,13 +13,22 @@ from .analysis import AnalysisSettings, _resolve_calibration, analyze_batch
 from .evidence import attach_evidence, file_identity, verify_evidence
 from .exporters import export_pdf, export_png, export_xlsx
 from .parsers import inspect_spectrum_metadata, parse_spectrum
-from .quality import input_gate
+from .quality import input_gate, standard_provenance_issue
 from .report_validation import require_exportable_analysis
 from ..version import TOOL_SCHEMA_VERSION
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[4]
 TOOL_REGISTRY_FILE = SKILL_ROOT / "schemas" / "tool-registry.json"
+
+
+def _bundled_file_matches(source_kind: str, payload: bytes) -> bool:
+    if source_kind != "bundled":
+        return False
+    bundled_path = SKILL_ROOT / "assets" / "app" / "data" / "default_calibration_source.xls"
+    return file_identity("standard", payload, "calibration")["sha256"] == file_identity(
+        "standard", bundled_path.read_bytes(), "calibration"
+    )["sha256"]
 
 
 def tool_registry() -> dict[str, Any]:
@@ -143,7 +152,9 @@ def _load_analysis_inputs(request: dict[str, Any]) -> tuple[Any, list[Any], list
         mass = item.get("mass_g")
         masses.append(float(mass) if mass is not None else float("nan"))
         identities.append(file_identity(path.name, payload, "sample"))
-    return standard, samples, masses, _settings(request), identities
+    settings = _settings(request)
+    settings.bundled_file_content_matches = _bundled_file_matches(settings.source_kind, calibration_payload)
+    return standard, samples, masses, settings, identities
 
 
 def validate_inputs(request: dict[str, Any]) -> dict[str, Any]:
@@ -151,6 +162,7 @@ def validate_inputs(request: dict[str, Any]) -> dict[str, Any]:
     samples_request = _required(request, "samples")
     settings = _settings(request)
     calibration_path, calibration_payload = _read(str(_required(calibration_request, "path")))
+    settings.bundled_file_content_matches = _bundled_file_matches(settings.source_kind, calibration_payload)
     calibration_metadata = inspect_spectrum_metadata(calibration_path.name, calibration_payload)
     calibration_live = calibration_request.get("live_time_s") or calibration_metadata.get("live_time_s")
     identities = [file_identity(calibration_path.name, calibration_payload, "calibration")]
@@ -174,11 +186,9 @@ def validate_inputs(request: dict[str, Any]) -> dict[str, Any]:
             "code": "conditional_missing_standard_acquisition_time", "severity": "conditional", "scope": "standard",
             "message": "Standard acquisition time is absent; decay correction to measurement time cannot be verified.",
         })
-    if not (settings.standard_traceable and str(settings.standard_certificate_id or "").strip()):
-        supplemental.append({
-            "code": "conditional_unverified_standard", "severity": "conditional", "scope": "standard",
-            "message": "No complete traceable certificate identity was supplied.",
-        })
+    provenance_issue = standard_provenance_issue(settings)
+    if provenance_issue is not None:
+        supplemental.append(provenance_issue)
     if settings.geometry_match is not True:
         supplemental.append({
             "code": "conditional_unmatched_geometry", "severity": "conditional", "scope": "analysis",
@@ -190,10 +200,7 @@ def validate_inputs(request: dict[str, Any]) -> dict[str, Any]:
             "message": "Matrix compatibility was not affirmatively verified.",
         })
     if settings.apply_builtin_validation_profile:
-        default_payload = (SKILL_ROOT / "assets" / "app" / "data" / "default_calibration_source.xls").read_bytes()
-        if settings.source_kind != "bundled" or identities[0]["sha256"] != file_identity(
-            "default_calibration_source.xls", default_payload, "calibration"
-        )["sha256"]:
+        if not settings.bundled_file_content_matches:
             gate["issues"].append({
                 "code": "blocked_empirical_profile_out_of_scope", "severity": "blocking", "scope": "standard",
                 "message": "The legacy empirical profile is restricted to the bundled calibration-source file.",
@@ -243,6 +250,7 @@ def analyze_ra_th_k(request: dict[str, Any]) -> dict[str, Any]:
         "certificate_id": settings.standard_certificate_id,
         "traceable": settings.standard_traceable,
         "source_kind": settings.source_kind,
+        "bundled_file_content_matches": settings.bundled_file_content_matches,
         "reference_date": settings.reference_date,
         "activities_bq": settings.reference_activities_bq,
         "geometry_match": settings.geometry_match,

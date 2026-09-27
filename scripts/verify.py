@@ -39,6 +39,9 @@ def main() -> int:
         APP_ROOT / "tests" / "test_agent_tools.py", SKILL_ROOT / "schemas" / "tool-registry.json",
         SKILL_ROOT / "scripts" / "rtk_tool.py", SKILL_ROOT / "scripts" / "mcp_server.py",
         SKILL_ROOT / "evaluation" / "evaluate.py",
+        SKILL_ROOT / "evaluation" / "cases.json",
+        SKILL_ROOT / "evaluation" / "BEHAVIOR_PROTOCOL.md",
+        SKILL_ROOT / "evaluation" / "tests" / "test_behavior.py",
     ]
     missing = [str(path.relative_to(SKILL_ROOT)) for path in required if not path.exists()]
     checks: dict[str, object] = {"python": sys.executable, "missing": missing}
@@ -58,7 +61,7 @@ def main() -> int:
     checks["compiled"] = compileall.compile_dir(APP_ROOT / "app", quiet=1)
     checks["scripts_compiled"] = compileall.compile_dir(SKILL_ROOT / "scripts", quiet=1)
     try:
-        for name in ("evaluate.py", "nuclear_sensitivity.py"):
+        for name in ("evaluate.py", "nuclear_sensitivity.py", "tests/test_behavior.py"):
             path = SKILL_ROOT / "evaluation" / name
             compile(path.read_text(encoding="utf-8"), str(path), "exec")
         checks["evaluation_compiled"] = True
@@ -69,9 +72,12 @@ def main() -> int:
         return 1
     result = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"], cwd=APP_ROOT)
     checks["tests_exit_code"] = result.returncode
-    status = "passed" if result.returncode == 0 else "failed"
+    behavior_result = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "evaluation/tests", "-v"],
+                                     cwd=SKILL_ROOT)
+    checks["behavior_tests_exit_code"] = behavior_result.returncode
+    status = "passed" if result.returncode == 0 and behavior_result.returncode == 0 else "failed"
     print(json.dumps({"status": status, "checks": checks}, ensure_ascii=False, indent=2))
-    return result.returncode
+    return 0 if status == "passed" else 1
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -19,7 +19,7 @@ from app.services.analysis import (
     AnalysisSettings, EFFICIENCY_LINE_DATA, _k40_efficiency_from_ra_th,
     _validated_th232_activity, analyze_batch,
 )
-from app.services.exporters import _calibration_equation, export_pdf, export_png, export_xlsx
+from app.services.exporters import _calibration_equation, _chart_activity, export_pdf, export_png, export_xlsx
 from app.services.evidence import attach_evidence
 from app.services.parameter_import import parse_analysis_parameters
 from app.services.parsers import Spectrum, inspect_spectrum_metadata, parse_spectrum
@@ -357,6 +357,70 @@ class CoreTests(unittest.TestCase):
         self.assertTrue(export_png(result).startswith(b"\x89PNG"))
         self.assertTrue(export_pdf(result).startswith(b"%PDF"))
 
+    def test_conditional_activity_chart_keeps_estimates_separate(self):
+        """Synthetic behavior case: estimates are plotted but never promoted to formal cells."""
+        result = analyze_batch(
+            synthetic("standard", 1.0), [synthetic("sample-1", 0.45), synthetic("sample-2", 0.7)],
+            [334.0, 245.0], AnalysisSettings(),
+            {"calibration": {"slope": 0.2, "intercept": 0.1},
+             "sample-1": {"slope": 0.2, "intercept": 0.1}, "sample-2": {"slope": 0.2, "intercept": 0.1}},
+        )
+        first = result["results"][0]
+        conditional_keys = [key for key in ("Th232", "Ra226", "K40")
+                            if _chart_activity(first, key)[1] == "estimate"]
+        self.assertTrue(conditional_keys)
+        key = conditional_keys[0]
+        value, kind = _chart_activity(first, key)
+        self.assertEqual(kind, "estimate")
+        self.assertGreater(value, 0)
+        self.assertIsNone(first["quality"]["nuclides"][key]["reportable_activity_bq_kg"])
+        workbook = load_workbook(BytesIO(export_xlsx(result)), read_only=False)
+        sheet = workbook["比活度"]
+        estimate_col = {"Th232": 9, "Ra226": 11, "K40": 13}[key]
+        formal_col = estimate_col - 1
+        self.assertIsNone(sheet.cell(4, formal_col).value)
+        self.assertAlmostEqual(sheet.cell(4, estimate_col).value, value)
+        self.assertIn("条件性估算", sheet.cell(3, estimate_col).value)
+        for language, phrase in (("zht", "條件性估算"), ("en", "Conditional estimate"),
+                                 ("fr", "Estimation conditionnelle")):
+            with self.subTest(language=language):
+                localized = load_workbook(BytesIO(export_xlsx(result, language)), read_only=False)
+                translated_sheet = localized[{"zht": "比活度", "en": "Specific Activity",
+                                              "fr": "Activité massique"}[language]]
+                self.assertIn(phrase, translated_sheet.cell(3, estimate_col).value)
+                self.assertIsNone(translated_sheet.cell(4, formal_col).value)
+        self.assertTrue(export_png(result).startswith(b"\x89PNG"))
+        self.assertTrue(export_pdf(result).startswith(b"%PDF"))
+        first["quality"]["workflow_status"] = "blocked"
+        self.assertEqual(_chart_activity(first, key), (None, None))
+        first["quality"]["workflow_status"] = "conditional_result"
+        first["quality"]["nuclides"][key]["detection_status"] = "not_detected"
+        self.assertEqual(_chart_activity(first, key), (None, None))
+        first["quality"]["nuclides"][key]["detection_status"] = "detected"
+        first["quality"]["nuclides"][key]["workflow_status"] = "ready_for_quantification"
+        first["quality"]["nuclides"][key]["reportable_activity_bq_kg"] = value
+        self.assertEqual(_chart_activity(first, key), (value, "formal"))
+
+    def test_bundled_provenance_message_does_not_claim_missing_certificate(self):
+        """Synthetic spectra exercise only the quality-gate wording, not source authenticity."""
+        specifications = {"calibration": {"slope": 0.2, "intercept": 0.1},
+                          "sample": {"slope": 0.2, "intercept": 0.1}}
+        bundled = analyze_batch(
+            synthetic("standard", 1.0), [synthetic("sample", 0.5)], [500.0],
+            AnalysisSettings(source_kind="bundled", bundled_file_content_matches=True), specifications,
+        )
+        issues = bundled["quality"]["issues"]
+        self.assertIn("conditional_bundled_standard_documentation_unverified", {x["code"] for x in issues})
+        self.assertNotIn("conditional_unverified_standard", {x["code"] for x in issues})
+        self.assertTrue(all("lacks a complete traceable certificate" not in x["message"] for x in issues))
+        self.assertEqual(bundled["quality"]["workflow_status"], "conditional_result")
+
+        custom = analyze_batch(
+            synthetic("standard", 1.0), [synthetic("sample", 0.5)], [500.0],
+            AnalysisSettings(source_kind="custom"), specifications,
+        )
+        self.assertIn("conditional_unverified_standard", {x["code"] for x in custom["quality"]["issues"]})
+
     def test_four_language_ui_and_exports(self):
         calibration_points = [[100.0, 20.1], [1000.0, 200.1], [5000.0, 1000.1]]
         result = analyze_batch(
@@ -402,6 +466,24 @@ class CoreTests(unittest.TestCase):
         self.assertIn('id="exportLocationInput"', html)
         self.assertIn("efficiencyCanvas", html)
         self.assertIn("probabilityCalibration", script)
+        self.assertIn("qualityStatusLabel(r.quality?.workflow_status)", script)
+        self.assertIn("map(localizeQualityIssue)", script)
+        self.assertIn("r.warnings.map(localizeAdditionalWarning)", script)
+        self.assertIn("if(state.analysis)renderResults(state.analysis)", script)
+        for issue_code in (
+            "blocked_missing_mass", "blocked_missing_live_time", "blocked_unverified_standard",
+            "blocked_calibration_failure", "blocked_empirical_profile_out_of_scope",
+            "conditional_bundled_standard_documentation_unverified",
+            "conditional_unverified_standard",
+            "conditional_missing_standard_acquisition_time", "conditional_unmatched_geometry",
+            "conditional_unmatched_matrix", "conditional_legacy_empirical_profile",
+            "conditional_unconfirmed_equilibrium", "not_detected",
+            "conditional_multi_peak_inconsistency",
+        ):
+            self.assertGreaterEqual(script.count(f"{issue_code}:"), 3)
+        self.assertIn("chartActivity(r,key)", script)
+        for translated in ("条件性结果", "條件性結果", "Conditional result", "Résultat conditionnel"):
+            self.assertIn(translated, script)
         self.assertNotIn("Math.log10(Math.max(0,v)+1)", script)
         self.assertIn("spectrumYAxis:'计数'", script)
 

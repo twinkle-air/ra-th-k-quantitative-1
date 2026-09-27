@@ -13,6 +13,27 @@ def issue(code: str, severity: str, message: str, scope: str = "analysis") -> di
     return {"code": code, "severity": severity, "scope": scope, "message": message}
 
 
+def standard_provenance_issue(settings: Any) -> dict[str, str] | None:
+    """Separate a verified bundled file identity from an unverified certificate claim."""
+    if bool(getattr(settings, "standard_traceable", False)) and str(
+        getattr(settings, "standard_certificate_id", "") or ""
+    ).strip():
+        return None
+    if (getattr(settings, "source_kind", None) == "bundled"
+            and bool(getattr(settings, "bundled_file_content_matches", False))):
+        return issue(
+            "conditional_bundled_standard_documentation_unverified", "conditional",
+            "The bundled project calibration-source spectrum was used; its original value-assignment "
+            "and metrological-traceability documents were not independently verified by this software. "
+            "Results are conditional estimates.", "standard",
+        )
+    return issue(
+        "conditional_unverified_standard", "conditional",
+        "The custom standard source lacks a complete traceable certificate identity; "
+        "results are conditional estimates.", "standard",
+    )
+
+
 def overall_status(issues: list[dict[str, Any]]) -> str:
     if any(item["severity"] == "blocking" for item in issues):
         return "blocked"
@@ -60,12 +81,9 @@ def apply_quality_gates(analysis: dict[str, Any], settings: Any) -> dict[str, An
             "blocked_calibration_failure", "blocking",
             "Energy calibration is invalid or its RMS residual exceeds the 0.5 keV project policy.", "standard",
         ))
-    if not (bool(getattr(settings, "standard_traceable", False)) and
-            str(getattr(settings, "standard_certificate_id", "") or "").strip()):
-        global_issues.append(issue(
-            "conditional_unverified_standard", "conditional",
-            "The standard source lacks a complete traceable certificate identity; results are conditional estimates.", "standard",
-        ))
+    provenance_issue = standard_provenance_issue(settings)
+    if provenance_issue is not None:
+        global_issues.append(provenance_issue)
     if not analysis.get("standard", {}).get("acquired_at"):
         global_issues.append(issue(
             "conditional_missing_standard_acquisition_time", "conditional",

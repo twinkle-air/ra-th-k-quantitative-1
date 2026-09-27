@@ -3,7 +3,7 @@ name: ra-th-k-quantitative-1
 description: Analyze soil Ra-226, Th-232, and K-40 from HPGe gamma spectra with a bundled local web workbench. Use when users need to import .xls, .xlsx, .txt, .csv, .dat, .doc, or .docx spectra, recover live time, perform energy calibration and detection-aware adaptive-background peak integration, compare samples with a matched efficiency standard, review calibration/QC evidence, or export Simplified Chinese, Traditional Chinese, English, and French PNG, PDF, and Excel reports.
 license: MIT
 metadata:
-  version: "1.5.1"
+  version: "1.5.2"
   author: twinkle-air
   compatibility: "Python 3.10+; local deterministic CLI and stdio MCP"
 ---
@@ -51,6 +51,8 @@ Treat the directory containing this `SKILL.md` as `SKILL_DIR`. Resolve every rel
 7. Read [references/QUALITY_GATES.md](references/QUALITY_GATES.md) for status semantics and [references/VALIDATION.md](references/VALIDATION.md) for what has and has not been scientifically demonstrated.
 
 For release or competition claims, consult [references/IMPLEMENTATION_CHECKLIST.md](references/IMPLEMENTATION_CHECKLIST.md) and do not present pending blind-sample, cross-host, or ablation work as completed evidence.
+Check [references/RELEASE_AUDIT.md](references/RELEASE_AUDIT.md) before redistributing the bundled calibration spectrum or describing a competition release. The MIT code license is not evidence of permission to redistribute third-party measurement data.
+For a cross-host Skill-effect claim, first follow [evaluation/BEHAVIOR_PROTOCOL.md](evaluation/BEHAVIOR_PROTOCOL.md) and run the same five frozen tasks in two real hosts under no-Skill, instructions-only, and full-tool conditions. Preserve raw prompts, traces, outputs, input hashes, and human adjudication; local regression tests are not host-effect evidence.
 Before claiming adopted nuclear data were verified, consult [references/NUCLEAR_DATA_AUDIT.md](references/NUCLEAR_DATA_AUDIT.md) and the non-production sensitivity script `python evaluation/nuclear_sensitivity.py`. Public held-out source screening and its limitations are recorded in [evaluation/PUBLIC_DATA.md](evaluation/PUBLIC_DATA.md).
 
 ## Scientific guardrails
