@@ -6,6 +6,7 @@
   <title>镭钍钾定量分析智能体</title>
   <link rel="icon" type="image/png" href="/static/project-icon.png?v=20261001">
   <link rel="stylesheet" href="/static/styles.css?v=20261001">
+  <link rel="stylesheet" href="/static/ui-theme.css?v=20261001-ui1">
 </head>
 <body>
   <header class="topbar">
@@ -17,12 +18,31 @@
   <main class="workspace">
     <section class="content">
       <section class="hero panel">
+<svg class="hero-art" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" width="1200" height="220" viewBox="0 0 1200 220" fill="none">
+  <defs>
+    <linearGradient id="sky" x1="300" y1="0" x2="1200" y2="220" gradientUnits="userSpaceOnUse"><stop stop-color="#ecf9fb"/><stop offset="1" stop-color="#8ad4e0"/></linearGradient>
+    <linearGradient id="mount" x1="730" y1="50" x2="730" y2="220" gradientUnits="userSpaceOnUse"><stop stop-color="#64b9ca" stop-opacity=".48"/><stop offset="1" stop-color="#91dbe5" stop-opacity=".06"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="3"/></filter>
+  </defs>
+  <g>
+    <rect width="1200" height="220" fill="url(#sky)"/>
+    <circle cx="1070" cy="100" r="180" stroke="white" stroke-opacity=".25"/>
+    <circle cx="1070" cy="100" r="210" stroke="white" stroke-opacity=".15"/>
+    <path d="M270 195 397 123 425 150 493 89 523 116 561 72 589 91 628 33 645 47 661 79 692 93 727 123 782 111 841 151 884 129 945 181 1011 150 1060 167 1132 126 1200 182V220H270Z" fill="url(#mount)"/>
+    <path d="m493 89 17 46 14-19 21 18 16-62 20 57 19-14 28-82 21 47 12-1 31 40 35 4" stroke="white" stroke-opacity=".45"/>
+    <path d="M240 218 395 175 473 193 563 134 608 167 646 104 708 174 774 147 835 194 883 171 946 201 1060 175 1200 213" stroke="#72c7d6" stroke-opacity=".4" stroke-width="18"/>
+    <g stroke="white" stroke-width="1.4" opacity=".6"><path d="m856 40 20-11 20 11v23l-20 12-20-12Z m40 0 12-18m-32 7V13m20 50 13 8m-33 4v18m-20-53-15-9"/><circle cx="909" cy="20" r="4"/><circle cx="876" cy="9" r="4"/><circle cx="913" cy="74" r="4"/><path d="m946 90 16-9 16 9v19l-16 9-16-9Z m32 0 13-8m-29 36v16"/></g>
+    <path id="spectrum" d="M480 194h126l5-6 5 6 6-12 4 12 6-5 5 5 5-33 4 33 7-4 5 4 6-76 5 76 7-15 5 15 6-5 5 5 7-137 6 137 6-19 6 19 8-48 6 48 8-9 6 9 5-109 5 109 7-36 5 36 7-68 5 68 7-6 5 6 6-27 5 27 8-46 6 46 8-11 5 11 6-16 5 16 5-41 5 41h198" stroke="white" stroke-width="5" filter="url(#glow)" opacity=".75"/>
+    <use href="#spectrum" stroke="#e7ffff" stroke-width="1.8"/>
+    <path d="M430 205h770" stroke="white" stroke-opacity=".55"/>
+  </g>
+</svg>
         <div><span class="eyebrow" data-i18n="standardMethod">相对效率 · 同几何比较法</span><h2 data-i18n="heroTitle">从原始谱线到可审计结果</h2><p data-i18n="heroText">逐谱刻度、局部本底、多特征峰合并，并保留每一步中间量。</p></div>
         <div class="method-chips"><span>²²⁶Ra</span><span>²³²Th</span><span>⁴⁰K</span></div>
       </section>
 
       <section class="grid two">
-        <article class="panel">
+        <article class="panel import-panel">
           <div class="panel-head"><div><span class="kicker">01</span><h3 data-i18n="filesTitle">导入能谱文件</h3></div><span class="file-types">.XLS · .XLSX · .TXT · .DOC · .DOCX</span></div>
           <label class="source-select"><span data-i18n="sourceMode">刻度源（效率校准源）</span><select id="calSourceMode"><option value="default" data-i18n="defaultSourceOption">使用默认刻度源</option><option value="upload" data-i18n="uploadSourceOption">上传自定义刻度源</option></select></label>
           <label class="dropzone builtin" id="calDrop"><input id="calFile" type="file" accept=".xls,.xlsx,.txt,.csv,.dat,.doc,.docx" disabled><span class="upload-icon" id="calIcon">✓</span><b id="calUploadText" data-i18n="defaultSourceReady">已选择默认刻度源</b><small data-i18n="calHint">要求与样品具有一致的测量几何</small><em id="calName">土壤监测效率校准源.xls</em></label>
@@ -30,7 +50,7 @@
           <div id="sampleList" class="sample-list"><p class="empty" data-i18n="sampleEmpty">尚未导入样品</p></div>
         </article>
 
-        <article class="panel">
+        <article class="panel parameters-panel">
           <div class="panel-head"><div><span class="kicker">02</span><h3 data-i18n="paramsTitle">校准与分析参数</h3></div><button class="ghost" id="resetBtn" data-i18n="reset">恢复默认</button></div>
           <div class="parameter-import"><input id="parameterFile" type="file" accept=".pdf,.xls,.xlsx,.doc,.docx" hidden><div><b data-i18n="parameterImportTitle">从文件导入参数</b><small data-i18n="parameterImportHint">支持 PDF、Word、XLS、XLSX；自动识别并填入下方字段</small><span id="parameterImportStatus"></span></div><button type="button" id="parameterImportBtn" data-i18n="parameterImportButton">选择参数文件</button></div>
           <div class="form-grid">

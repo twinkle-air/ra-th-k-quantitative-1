@@ -16,6 +16,8 @@ Ra–Th–K Quantitative 1 is an Agent Skill for quantitative radium, thorium, a
 
 ## What's New in v1.5.3 (2026-10-01)
 
+- Added a light-blue scientific-workbench theme with a navy header, decorative mountain/spectrum banner, and consistent visual hierarchy for input cards, result tables, and reports. Improved keyboard focus and narrow-screen layouts. The decorative spectrum is not measurement data; algorithms, defaults, quality gates, and exported data remain unchanged.
+- Refreshed the running-interface image above. The [UI acceptance record and screenshots](artifacts/ui-redesign-20261001/验收记录.md) preserve earlier interaction-regression evidence, not independent scientific-accuracy validation or a complete accessibility-compliance audit.
 - The overview displays explicitly labeled conditional estimates and expandable QC reasons. PNG/PDF/Excel exports keep estimates separate from formal reportable values; quality gates remain enforced.
 - Automatic calibration uses deterministic consensus filtering followed by peak-centroid fitting to reject incidental line mismatches, without relaxing the 0.5 keV residual policy.
 - Sample masses no longer inherit the calibration-source mass. Automatic extraction requires an explicit sample-mass label and unit; otherwise manual input is required. Measurement-condition controls support all four languages.
