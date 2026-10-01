@@ -20,7 +20,7 @@ from app.services.analysis import (
     AnalysisSettings, EFFICIENCY_LINE_DATA, _k40_efficiency_from_ra_th,
     _validated_th232_activity, analyze_batch,
 )
-from app.services.exporters import _calibration_equation, _chart_activity, _conditional_rows, export_pdf, export_png, export_xlsx
+from app.services.exporters import _calibration_equation, _chart_activity, _conditional_rows, _display_activity, _display_content, _reported_activity, _result_note, export_pdf, export_png, export_xlsx
 from app.services.evidence import attach_evidence
 from app.services.parameter_import import parse_analysis_parameters
 from app.services.parsers import Spectrum, inspect_spectrum_metadata, parse_spectrum
@@ -86,7 +86,7 @@ class CoreTests(unittest.TestCase):
         self.assertLess(abs(calibration.intercept), .5)
         self.assertGreaterEqual(len(calibration.matched_points), 7)
 
-    def test_conditional_estimates_are_exported_separately_from_formal_values(self):
+    def test_conditional_estimates_are_visible_in_export_summaries_with_declarations(self):
         from pypdf import PdfReader
         result = analyze_batch(synthetic("standard", 1), [synthetic("sample", .3)], [244],
                                AnalysisSettings(), {"calibration": {"slope": .2, "intercept": .1},
@@ -94,7 +94,8 @@ class CoreTests(unittest.TestCase):
         estimates = _conditional_rows(result)
         self.assertEqual(len(estimates), 1)
         workbook = load_workbook(BytesIO(export_xlsx(result, "en")), data_only=True)
-        self.assertIsNone(workbook["Specific Activity"]["C4"].value)
+        self.assertAlmostEqual(workbook["Specific Activity"]["C4"].value, _display_activity(result["results"][0], "Th232"))
+        self.assertIsNone(_reported_activity(result["results"][0], "Th232"))
         self.assertGreater(workbook["Conditional Estimates"]["E3"].value, 0)
         text = "\n".join(page.extract_text() for page in PdfReader(BytesIO(export_pdf(result, "en"))).pages)
         self.assertIn("Conditional estimates", text)
@@ -104,8 +105,14 @@ class CoreTests(unittest.TestCase):
             estimate_sheet = book[sheet_name]
             self.assertIsInstance(estimate_sheet["E3"].value, (int, float))
             self.assertGreater(len(estimate_sheet["A1"].value), 20)
+            summary = book.worksheets[0]
+            self.assertAlmostEqual(summary["C4"].value, _display_content(result["results"][0], "Ra226"))
+            self.assertIsInstance(summary["G4"].value, str)
+            self.assertEqual(summary["A6"].value, _result_note(result, language))
             pdf_text = "\n".join(page.extract_text() for page in PdfReader(BytesIO(export_pdf(result, language))).pages)
             self.assertIn(" ".join(estimate_sheet["A1"].value.split()), " ".join(pdf_text.split()))
+            self.assertIn(" ".join(_result_note(result, language).split()), " ".join(pdf_text.split()))
+            self.assertIn(f"{_display_content(result['results'][0], 'Ra226'):.7g}", pdf_text.split("Conditional estimates")[0])
             self.assertTrue(export_png(result, language).startswith(b"\x89PNG"))
         source = (ROOT / "app/static/app.js").read_text(encoding="utf-8")
         helper = source.split("function summaryValue", 1)[1].split("\n", 1)[0]
@@ -113,6 +120,24 @@ class CoreTests(unittest.TestCase):
         self.assertNotIn("<small", helper)
         result["results"][0]["quality"]["workflow_status"] = "blocked"
         self.assertEqual(_conditional_rows(result), [])
+        self.assertIsNone(_display_activity(result["results"][0], "Ra226"))
+
+    def test_export_display_values_obey_detection_and_blocking_rules(self):
+        row = {"quality": {"workflow_status": "conditional_result", "nuclides": {
+            "Ra226": {"workflow_status": "conditional_result", "detection_status": "detected",
+                      "reportable_activity_bq_kg": None, "estimated_activity_bq_kg": 3351.666}}}}
+        self.assertEqual(_display_activity(row, "Ra226"), 3351.666)
+        self.assertAlmostEqual(_display_content(row, "Ra226"), 3351.666 / 36600)
+        self.assertIsNone(_reported_activity(row, "Ra226"))
+        q = row["quality"]["nuclides"]["Ra226"]
+        q["detection_status"] = "not_detected"
+        self.assertIsNone(_display_activity(row, "Ra226"))
+        q["detection_status"] = "detected"
+        q["workflow_status"] = "blocked"
+        self.assertIsNone(_display_activity(row, "Ra226"))
+        q["workflow_status"] = "conditional_result"
+        q["estimated_activity_bq_kg"] = float("nan")
+        self.assertIsNone(_display_activity(row, "Ra226"))
 
     @staticmethod
     def _signed(result):

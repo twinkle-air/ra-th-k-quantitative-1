@@ -16,6 +16,7 @@ Ra–Th–K Quantitative 1 is an Agent Skill for quantitative radium, thorium, a
 
 ## What's New in v1.5.3 (2026-10-01)
 
+- Additional export-display update: PNG/PDF/Excel main tables now match the interface by showing detected, non-blocked conditional estimates with QC status and declarations beneath the tables. Blocked and undetected values are omitted. Estimates are not promoted to formal results: machine-level `reportable_activity_bq_kg` and formal template placeholders retain their original quality gates. This supersedes the older main-table omission behavior described below.
 - Added a light-blue scientific-workbench theme with a navy header, decorative mountain/spectrum banner, and consistent visual hierarchy for input cards, result tables, and reports. Improved keyboard focus and narrow-screen layouts. The decorative spectrum is not measurement data; algorithms, defaults, quality gates, and exported data remain unchanged.
 - Refreshed the running-interface image above. The [UI acceptance record and screenshots](artifacts/ui-redesign-20261001/验收记录.md) preserve earlier interaction-regression evidence, not independent scientific-accuracy validation or a complete accessibility-compliance audit.
 - The overview displays explicitly labeled conditional estimates and expandable QC reasons. PNG/PDF/Excel exports keep estimates separate from formal reportable values; quality gates remain enforced.

@@ -173,7 +173,7 @@ class AgentToolTests(unittest.TestCase):
         self.assertEqual(report["effects_percent"]["direct_same_line_K40_activity_from_gamma_probability"], 0)
         self.assertAlmostEqual(report["effects_percent"]["absolute_efficiency_based_K40_activity_from_gamma_probability"], 3.19148936, places=5)
         self.assertAlmostEqual(report["evaluated_counterfactual"]["bq_kg_per_percent_k"], 315.2435, places=3)
-    def test_conditional_values_are_not_formal_template_or_excel_results(self):
+    def test_conditional_excel_display_does_not_promote_machine_or_template_values(self):
         from io import BytesIO
         from openpyxl import load_workbook
         from app.services.exporters import export_xlsx
@@ -186,7 +186,10 @@ class AgentToolTests(unittest.TestCase):
         self.assertEqual(values["sample.ra_bq_kg"], "—")
         self.assertNotEqual(values["sample.ra_estimated_bq_kg"], "—")
         workbook = load_workbook(BytesIO(export_xlsx(analysis, "en")), read_only=True)
-        self.assertIsNone(workbook["Specific Activity"]["D4"].value)
+        self.assertEqual(workbook["Specific Activity"]["D4"].value,
+                         row["quality"]["nuclides"]["Ra226"]["estimated_activity_bq_kg"])
+        self.assertIsNone(row["quality"]["nuclides"]["Ra226"]["reportable_activity_bq_kg"])
+        self.assertEqual(workbook["Specific Activity"]["F4"].value, "Conditional result")
     def test_all_export_entrypoints_reject_tampered_or_blocked_snapshot(self):
         from fastapi import HTTPException
         from app.main import ExportRequest, ExportSaveRequest, _render_export, save_export
