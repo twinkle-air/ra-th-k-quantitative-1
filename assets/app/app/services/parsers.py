@@ -116,6 +116,8 @@ def _extract_metadata(rows: Iterable[list[object]]) -> dict[str, str]:
         first = str(row[0]).strip()
         if "=" in first:
             key, value = first.split("=", 1)
+            if len(row) > 1 and str(row[1]).strip().lower() in {"g", "kg", "克", "千克"}:
+                value = value.strip() + " " + str(row[1]).strip()
             metadata[_canonical_metadata_key(key)] = value.strip()
         elif len(row) > 1 and _to_float(row[0]) is None:
             key = _canonical_metadata_key(first)
@@ -145,9 +147,29 @@ def inspect_spectrum_metadata(filename: str, payload: bytes) -> dict[str, object
         "live_time_s": live_time,
         "live_time_source": source,
         "real_time_s": real_time,
+        "sample_mass_g": _sample_mass_from_metadata(metadata),
         "acquired_at": _parse_datetime(metadata).isoformat() if _parse_datetime(metadata) else None,
         "metadata": metadata,
     }
+
+
+def _sample_mass_from_metadata(metadata: dict[str, str]) -> float | None:
+    """Only explicit sample/net-mass fields with units; never infer from a name."""
+    found: list[float] = []
+    for key, raw in metadata.items():
+        compact = re.sub(r"[\s_()（）]", "", key).upper()
+        if not any(label in compact for label in ("SAMPLEMASS", "NETMASS", "样品质量", "净质量", "样品量")):
+            continue
+        match = re.fullmatch(r"\s*([0-9]+(?:\.[0-9]+)?)\s*(kg|g|千克|克)?\s*", str(raw), re.I)
+        if not match:
+            continue
+        unit = (match.group(2) or ("kg" if "KG" in compact else "g" if compact.endswith("G") else "")).lower()
+        if unit not in {"kg", "g", "千克", "克"}:
+            continue
+        value = float(match.group(1)) * (1000 if unit in {"kg", "千克"} else 1)
+        if value > 0:
+            found.append(value)
+    return found[0] if found and all(abs(value - found[0]) < 1e-6 for value in found) else None
 
 
 def _parse_datetime(metadata: dict[str, str]) -> datetime | None:

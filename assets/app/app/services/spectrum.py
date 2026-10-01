@@ -89,10 +89,15 @@ def fit_manual_calibration(points: list[tuple[float, float]]) -> Calibration:
     )
 
 
-def auto_calibrate(spectrum: Spectrum, tolerance_keV: float = 2.2) -> Calibration:
+def auto_calibrate(spectrum: Spectrum, tolerance_keV: float = 0.5) -> Calibration:
     # Keep the strongest peaks. Uniformly thinning a channel-sorted list can drop
     # the very Ra/Th/K anchors needed to reject a numerically plausible false fit.
-    channels = find_candidate_peaks(spectrum, limit=35)
+    # Mixed spectra can have stronger non-target peaks. Keep the existing
+    # detector's full 60-candidate pool rather than discarding weak anchors.
+    channels = find_candidate_peaks(spectrum, limit=60)
+    # Apply consistency before ranking hypotheses. A loose winning hypothesis
+    # can otherwise discard the correct assignment before final consensus.
+    tolerance_keV = min(float(tolerance_keV), 0.5)
     best: tuple[int, int, float, float, float, list[tuple[float, float]]] | None = None
     energy_pairs = list(combinations(KNOWN_CALIBRATION_ENERGIES, 2))
     for c1, c2 in combinations(channels, 2):
@@ -107,12 +112,14 @@ def auto_calibrate(spectrum: Spectrum, tolerance_keV: float = 2.2) -> Calibratio
             matches: list[tuple[float, float]] = []
             errors: list[float] = []
             used: set[int] = set()
-            for channel, energy in zip(channels, predicted):
-                index = int(np.argmin(np.abs(KNOWN_CALIBRATION_ENERGIES - energy)))
-                error = abs(float(KNOWN_CALIBRATION_ENERGIES[index] - energy))
-                if error <= tolerance_keV and index not in used:
-                    matches.append((float(channel), float(KNOWN_CALIBRATION_ENERGIES[index])))
-                    errors.append(error)
+            distances = np.abs(predicted[:, None] - KNOWN_CALIBRATION_ENERGIES[None, :])
+            nearest = np.argmin(distances, axis=1)
+            nearest_errors = distances[np.arange(len(channels)), nearest]
+            for position in np.flatnonzero(nearest_errors <= tolerance_keV):
+                index = int(nearest[position])
+                if index not in used:
+                    matches.append((float(channels[position]), float(KNOWN_CALIBRATION_ENERGIES[index])))
+                    errors.append(float(nearest_errors[position]))
                     used.add(index)
             if len(matches) < 3:
                 continue
@@ -127,16 +134,43 @@ def auto_calibrate(spectrum: Spectrum, tolerance_keV: float = 2.2) -> Calibratio
         raise ValueError("自动刻度未找到至少 3 个一致峰；请手动填写斜率/截距或刻度点。")
     if best[0] < 3:
         raise ValueError("自动刻度未覆盖至少3条Ra/Th/K目标峰；请改用手动刻度。")
-    robust_points = best[5]
-    initial = fit_manual_calibration(robust_points)
-    residuals = np.asarray([energy - initial.energy(channel) for channel, energy in robust_points])
-    median = float(np.median(residuals))
-    mad = float(np.median(np.abs(residuals - median)))
-    cutoff = max(0.75, 4.0 * 1.4826 * mad)
-    filtered = [point for point, residual in zip(robust_points, residuals) if abs(float(residual - median)) <= cutoff]
-    result = fit_manual_calibration(filtered if len(filtered) >= 3 else robust_points)
+    # The broad search proposes identities, not confirmed calibration points.
+    # A least-squares fit followed by MAD filtering can absorb several wrong
+    # identities into its intercept and inflate the MAD. Use pair consensus
+    # before least squares, with the same residual policy as the quality gate.
+    proposed = best[5]
+    consensus: list[tuple[float, float]] = []
+    consensus_score = None
+    for (c1, e1), (c2, e2) in combinations(proposed, 2):
+        if c2 - c1 < 180:
+            continue
+        slope = (e2 - e1) / (c2 - c1)
+        intercept = e1 - slope * c1
+        inliers = [(ch, en) for ch, en in proposed if abs(en - (slope * ch + intercept)) <= 0.5]
+        if len(inliers) < 3:
+            continue
+        fit = fit_manual_calibration(inliers)
+        targets = sum(any(abs(en - target) < 0.02 for target in QUANTIFICATION_ANCHORS) for _, en in inliers)
+        score = (targets, len(inliers), max(en for _, en in inliers) - min(en for _, en in inliers), -fit.rms_keV)
+        if consensus_score is None or score > consensus_score:
+            consensus, consensus_score = inliers, score
+    if not consensus or consensus_score[0] < 3:
+        raise ValueError("自动刻度未找到满足0.5 keV一致性要求的至少3条目标峰；请提供独立手动刻度。")
+    initial = fit_manual_calibration(consensus)
+    refined = []
+    for channel, energy in consensus:
+        index = int(np.argmin(np.abs(spectrum.channels - channel)))
+        half = max(3, int(round(1.2 / initial.slope)))
+        left, right = max(0, index - half), min(len(spectrum.counts) - 1, index + half)
+        x = spectrum.channels[left:right + 1]
+        y = spectrum.counts[left:right + 1]
+        background = np.linspace(float(y[0]), float(y[-1]), len(y))
+        weights = np.clip(y - background, 0, None)
+        center = float(np.average(x, weights=weights)) if weights.sum() > 0 else channel
+        refined.append((center, energy))
+    result = fit_manual_calibration(refined)
     result.source = "auto"
-    if result.rms_keV > tolerance_keV:
+    if result.rms_keV > 0.5:
         raise ValueError("自动刻度残差过大，请改用手动刻度。")
     return result
 

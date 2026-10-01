@@ -4,11 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>镭钍钾定量分析智能体</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260831-2">
+  <link rel="icon" type="image/png" href="/static/project-icon.png?v=20261001">
+  <link rel="stylesheet" href="/static/styles.css?v=20261001">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+    <img class="brand-icon" src="/static/project-icon.png?v=20261001" alt="" aria-hidden="true">
     <div><h1 data-i18n="appTitle">镭钍钾定量分析智能体</h1><p data-i18n="appSubtitle">HPGe γ 能谱 · 可追溯定量工作台</p></div>
     <div class="status"><i></i><span data-i18n="localMode">本地分析模式</span></div>
   </header>
@@ -45,6 +46,13 @@
             <label><span data-i18n="bgWidth">本底窗宽 (keV)</span><input id="bgWidth" type="number" value="3.6" min="0.5" step="0.1"></label>
             <label class="wide"><span data-i18n="manualCal">手动刻度（可选，斜率 / 截距）</span><div class="inline"><input id="calSlope" type="number" placeholder="slope" step="any"><input id="calIntercept" type="number" placeholder="intercept" step="any"></div></label>
           </div></details>
+          <details class="advanced"><summary data-i18n="qualityConditions">测量条件与刻度源溯源确认</summary><div class="form-grid compact">
+            <label class="wide"><span data-i18n="certificateId">刻度源证书或定值文件标识</span><input id="certificateId" type="text"></label>
+          </div><div class="checks">
+            <label><input id="standardTraceable" type="checkbox"><span data-i18n="traceableConfirmed">已核实刻度源定值及溯源文件</span></label>
+            <label><input id="geometryMatch" type="checkbox"><span data-i18n="geometryConfirmed">已核实探测器、容器、装样高度及测量几何匹配</span></label>
+            <label><input id="matrixMatch" type="checkbox"><span data-i18n="matrixConfirmed">已核实基质密度与自吸收条件匹配</span></label>
+          </div><p class="activity-chart-note" data-i18n="qualityDeclaration">以上为使用者确认，软件记录声明但不独立核验。未确认时仅提供条件性估算。</p></details>
           <div class="checks"><label><input id="equilibrium" type="checkbox" checked><span data-i18n="equilibrium">已确认 Ra/Th 衰变链达到或近似平衡</span></label><label><input id="kCorrection" type="checkbox" checked><span data-i18n="kCorrection">修正 ²²⁸Ac 1459.14 keV 对 ⁴⁰K 的干扰</span></label></div>
           <button class="primary" id="analyzeBtn"><span data-i18n="analyze">开始定量分析</span><i>→</i></button>
           <p class="message" id="message"></p>
@@ -56,6 +64,8 @@
         <div class="export-destination" id="exportDestination" hidden><span data-i18n="exportLocation">导出位置</span><code id="exportDirectory"></code><button type="button" id="chooseExportDirectory" data-i18n="chooseExportLocation">选择位置</button></div>
         <div class="tabs"><button class="tab active" data-tab="summary" data-i18n="summaryTab">结果总览</button><button class="tab" data-tab="detail" data-i18n="detailTab">过程详表</button><button class="tab sample-charts-tab" data-tab="sampleCharts"><span data-i18n="sampleChartsTab">测试样能谱与拟合</span><em id="sampleChartCount">0</em></button><button class="tab" data-tab="spectrum" data-i18n="standardSpectrumTab">刻度源能谱与概率刻度</button></div>
         <div class="tabview active" id="summaryView">
+          <p class="activity-chart-note" data-i18n="summarySemantics">统一说明：条件性结果为估算值，不作为正式可报告结果。</p>
+          <div id="summaryIssues"></div>
           <section class="result-block"><h4 data-i18n="contentResults">镭、钍、钾含量结果</h4><div class="table-wrap"><table><thead><tr><th data-i18n="spectrumNo">谱线编号</th><th data-i18n="fileName">文件名</th><th>Ra (ppm)</th><th>Th (ppm)</th><th>K (%)</th><th data-i18n="qc">质控状态</th></tr></thead><tbody id="summaryBody"><tr><td colspan="6" class="placeholder" data-i18n="awaiting">导入文件并开始分析后，结果将显示在这里。</td></tr></tbody></table></div></section>
           <section class="result-block"><h4 data-i18n="activityResults">测试样镭钍钾比活度结果</h4><div class="table-wrap"><table><thead><tr><th data-i18n="sample">样品</th><th data-i18n="massKg">质量 / kg</th><th>Th-232 / (Bq·kg⁻¹)</th><th>Ra-226 / (Bq·kg⁻¹)</th><th>K-40 / (Bq·kg⁻¹)</th></tr></thead><tbody id="activityBody"><tr><td colspan="5" class="placeholder" data-i18n="awaitingActivity">完成分析后显示比活度结果。</td></tr></tbody></table></div></section>
           <section class="result-block chart-block" id="activityChartBlock" hidden><div class="chart-head"><h4 data-i18n="activityComparison">多样品比活度对比</h4><small data-i18n="activityUnit">单位：Bq·kg⁻¹</small></div><canvas id="activityCanvas" width="1200" height="430"></canvas><p class="activity-chart-note" id="activityChartNote" data-i18n="chartExclusion">浅色柱仅为条件性估算；阻断、未检出及非正值不绘制。</p></section>
@@ -92,6 +102,6 @@
     <li><b data-i18n="guide9Title">使用报告模板</b><p data-i18n="guide9Text"></p></li>
   </ol><div class="modal-help"><b data-i18n="guideTroubleTitle">常见问题</b><p data-i18n="guideTroubleText"></p></div><div class="modal-note" data-i18n="guideNote"></div><div class="modal-contact"><b data-i18n="guideContactTitle">反馈与建议</b><p data-i18n="guideContactText">twinkle-air　邮箱：twinkleair369@gmail.com　或者 twinkle-air@qq.com</p></div></div></dialog>
   <dialog id="exportLocationModal" class="export-location-dialog"><div class="modal-head"><div><span class="eyebrow" data-i18n="exportLocation">导出位置</span><h2 data-i18n="exportLocationTitle">修改导出位置</h2></div><button id="closeExportLocation" type="button" aria-label="close">×</button></div><div class="export-location-body"><label><span data-i18n="exportPathLabel">文件夹完整路径</span><input id="exportLocationInput" type="text" autocomplete="off" spellcheck="false"></label><p data-i18n="exportPathHelp">请输入本机已存在且具有写入权限的文件夹路径。</p><div class="export-location-actions"><button id="cancelExportLocation" type="button" class="ghost" data-i18n="cancel">取消</button><button id="confirmExportLocation" type="button" class="primary" data-i18n="confirm">确认</button></div></div></dialog>
-  <script src="/static/app.js?v=20260927-2"></script>
+  <script src="/static/app.js?v=20261001-2"></script>
 </body>
 </html>

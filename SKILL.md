@@ -3,7 +3,7 @@ name: ra-th-k-quantitative-1
 description: Analyze soil Ra-226, Th-232, and K-40 from HPGe gamma spectra with a bundled local web workbench. Use when users need to import .xls, .xlsx, .txt, .csv, .dat, .doc, or .docx spectra, recover live time, perform energy calibration and detection-aware adaptive-background peak integration, compare samples with a matched efficiency standard, review calibration/QC evidence, or export Simplified Chinese, Traditional Chinese, English, and French PNG, PDF, and Excel reports.
 license: MIT
 metadata:
-  version: "1.5.2"
+  version: "1.5.3"
   author: twinkle-air
   compatibility: "Python 3.10+; local deterministic CLI and stdio MCP"
 ---

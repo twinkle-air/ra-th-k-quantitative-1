@@ -1,6 +1,6 @@
 # Ra–Th–K Quantitative 1
 
-> Current version: **v1.5.2 (2026-09-27)** · An incremental update to the same Skill, not a new project
+> Current version: **v1.5.3 (2026-10-01)** · An incremental update to the same Skill, not a new project
 
 [简体中文 README](README.md) · English
 
@@ -12,7 +12,15 @@ Ra–Th–K Quantitative 1 is an Agent Skill for quantitative radium, thorium, a
 
 > This project is an auxiliary calculation and traceable-reporting tool, not a certified laboratory measurement system. The user remains responsible for sample preparation, calibration-source traceability, measurement-geometry consistency, decay-chain equilibrium, detection limits, and uncertainty evaluation.
 
-![Current Ra–Th–K Quantitative 1 interface](assets/ui-verification.png)
+![Current Ra–Th–K Quantitative 1 interface, captured locally on 2026-10-01](assets/ui-verification.png)
+
+## What's New in v1.5.3 (2026-10-01)
+
+- The overview displays explicitly labeled conditional estimates and expandable QC reasons. PNG/PDF/Excel exports keep estimates separate from formal reportable values; quality gates remain enforced.
+- Automatic calibration uses deterministic consensus filtering followed by peak-centroid fitting to reject incidental line mismatches, without relaxing the 0.5 keV residual policy.
+- Sample masses no longer inherit the calibration-source mass. Automatic extraction requires an explicit sample-mass label and unit; otherwise manual input is required. Measurement-condition controls support all four languages.
+- Replaced the project, web-header, browser-tab, and Windows application icons with the supplied artwork. The interface image above was captured from this running version.
+- [Fix and verification record](references/ANALYSIS_FIX_2026-10-01.md): regression success does not establish independently validated quantitative accuracy.
 
 ## What's New in v1.5.2 (2026-09-27)
 

@@ -83,6 +83,12 @@ _CHART_TEXT = {
     "en": {"estimate": "Conditional estimate (not formal)", "chart_note": "Pale bars are conditional estimates; blocked, undetected and non-positive values are omitted.", "chart_no_values": "No detected positive values to plot.", "chart_no_formal": "No formally reportable specific activity in this group."},
     "fr": {"estimate": "Estimation conditionnelle (non officielle)", "chart_note": "Les barres pâles sont conditionnelles ; valeurs bloquées, non détectées ou non positives omises.", "chart_no_values": "Aucune valeur positive détectée à tracer.", "chart_no_formal": "Aucune activité massique officiellement recevable dans ce groupe."},
 }
+_ESTIMATE_TITLES = {
+    "zh": "条件性估算值（本表数值均为估算值，不作为正式可报告结果）",
+    "zht": "條件性估算值（本表數值均為估算值，不作為正式可報告結果）",
+    "en": "Conditional estimates (all values in this table are estimates, not formally reportable)",
+    "fr": "Estimations conditionnelles (toutes les valeurs sont estimées, non officielles)",
+}
 for _language, _values in _CHART_TEXT.items():
     _TEXT[_language].update(_values)
 
@@ -148,6 +154,22 @@ def _reported_content(item: dict[str, Any], nuclide: str) -> float | None:
         return None
     divisor = {"Ra226": 36600.0, "Th232": 4.056, "K40": 311.0}[nuclide]
     return activity / divisor
+
+
+def _conditional_rows(analysis: dict[str, Any]) -> list[list[Any]]:
+    rows = []
+    for item in analysis.get("results", []):
+        values = {key: value if kind == "estimate" else None
+                  for key in ("Ra226", "Th232", "K40")
+                  for value, kind in [_chart_activity(item, key)]}
+        if not any(value is not None for value in values.values()):
+            continue
+        rows.append([item.get("name"),
+                     values["Ra226"] / 36600 if values["Ra226"] is not None else None,
+                     values["Th232"] / 4.056 if values["Th232"] is not None else None,
+                     values["K40"] / 311 if values["K40"] is not None else None,
+                     values["Th232"], values["Ra226"], values["K40"]])
+    return rows
 
 
 def _calibration_equation(slope: Any, intercept: Any, digits: int = 8, include_unit: bool = True) -> str:
@@ -334,6 +356,22 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
     for index, width in enumerate(widths, 1):
         ws.column_dimensions[chr(64 + index)].width = width
     ws.freeze_panes = "A4"
+
+    estimates = _conditional_rows(analysis)
+    if estimates:
+        sheet_name = {"zh": "条件性估算", "zht": "條件性估算", "en": "Conditional Estimates", "fr": "Estimations conditionnelles"}[language]
+        estimate_sheet = wb.create_sheet(sheet_name)
+        estimate_sheet.append([_ESTIMATE_TITLES[language]])
+        estimate_sheet.append([_tr(language, "sample"), "Ra (ppm)", "Th (ppm)", "K (%)",
+                               "Th-232 / Bq/kg", "Ra-226 / Bq/kg", "K-40 / Bq/kg"])
+        for values in estimates:
+            estimate_sheet.append(values)
+        estimate_sheet.append([_result_note(analysis, language)])
+        for column in "ABCDEFG":
+            estimate_sheet.column_dimensions[column].width = 25
+        for cell in estimate_sheet[2]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="176B70")
 
     activity = wb.create_sheet(_tr(language, "activity_sheet"))
     activity_title = _tr(language, "activity_title")
@@ -595,7 +633,9 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
     chart_height = 470 if len(rows) > 1 else 0
     fit_charts_height = len(rows) * 500
     probability_height = 950 if analysis.get("standard", {}).get("efficiency_calibration", {}).get("points") else 0
-    height = max(1000, 150 + (len(rows) + 1) * row_h * 3 + fit_charts_height + probability_height + chart_height + (peak_count + 1) * row_h + 430)
+    estimates = _conditional_rows(analysis)
+    estimate_height = (len(estimates) + 1) * row_h + 80 if estimates else 0
+    height = max(1000, 150 + (len(rows) + 1) * row_h * 3 + fit_charts_height + probability_height + chart_height + (peak_count + 1) * row_h + 430 + estimate_height)
     image = Image.new("RGB", (width, height), "#F7F9F8")
     draw = ImageDraw.Draw(image)
     regular = ImageFont.truetype(_font_path(), 22)
@@ -641,6 +681,11 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
                         _number(_reported_activity(item, "K40"), 7)] for item in rows]
     y = table(y, _tr(language, "activity_title"), activity_headers,
               activity_values, [360, 220, 320, 320, 320])
+
+    if estimates:
+        estimate_headers = [_tr(language, "sample"), "Ra / ppm", "Th / ppm", "K / %", "Th / Bq/kg", "Ra / Bq/kg", "K / Bq/kg"]
+        estimate_values = [[values[0], *[_number(value, 7) for value in values[1:]]] for values in estimates]
+        y = table(y, _ESTIMATE_TITLES[language], estimate_headers, estimate_values, [280, 210, 210, 210, 210, 210, 210])
 
     calibration_headers = [_tr(language, "sample"), _tr(language, "calibration_equation"), _tr(language, "correlation"), _tr(language, "deviation"), "RMS / keV"]
     calibration_values = []
@@ -843,6 +888,19 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
     story = [Paragraph(title, title_style), Spacer(1, 7 * mm), table, Spacer(1, 7 * mm),
              Paragraph(_tr(language, "activity_title"), title_style),
              Spacer(1, 4 * mm), activity_table]
+    estimates = _conditional_rows(analysis)
+    if estimates:
+        estimate_data = [[_tr(language, "sample"), "Ra / ppm", "Th / ppm", "K / %", "Th / Bq/kg", "Ra / Bq/kg", "K / Bq/kg"]]
+        estimate_data.extend([[values[0], *[_number(value, 7) for value in values[1:]]] for values in estimates])
+        estimate_table = Table(estimate_data, colWidths=[48 * mm, *([34 * mm] * 6)], repeatRows=1)
+        estimate_table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, -1), font_name), ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#176B70")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#799099")),
+        ]))
+        story.extend([Spacer(1, 7 * mm), Paragraph(_ESTIMATE_TITLES[language], title_style),
+                      Spacer(1, 4 * mm), estimate_table])
     if len(analysis.get("results", [])) > 1:
         results = analysis["results"]
         chart = Drawing(700, 235)

@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 import numpy as np
@@ -19,14 +20,14 @@ from app.services.analysis import (
     AnalysisSettings, EFFICIENCY_LINE_DATA, _k40_efficiency_from_ra_th,
     _validated_th232_activity, analyze_batch,
 )
-from app.services.exporters import _calibration_equation, _chart_activity, export_pdf, export_png, export_xlsx
+from app.services.exporters import _calibration_equation, _chart_activity, _conditional_rows, export_pdf, export_png, export_xlsx
 from app.services.evidence import attach_evidence
 from app.services.parameter_import import parse_analysis_parameters
 from app.services.parsers import Spectrum, inspect_spectrum_metadata, parse_spectrum
 from app.services.report_templates import (
     example_report_template, inspect_report_template, render_report_template,
 )
-from app.services.spectrum import Calibration, PeakArea, fit_manual_calibration, integrate_peak
+from app.services.spectrum import Calibration, PeakArea, auto_calibrate, fit_manual_calibration, integrate_peak
 
 
 ENERGIES = [238.632, 295.224, 351.932, 583.187, 609.312, 911.204, 1460.822]
@@ -44,6 +45,75 @@ def synthetic(name: str, scale: float, mass_g: float = 500.0) -> Spectrum:
 
 
 class CoreTests(unittest.TestCase):
+    def test_auto_calibration_rejects_incidental_wrong_line_matches(self):
+        channels = np.arange(8192, dtype=float)
+        slope, intercept = 0.297, 0.06
+        counts = np.full(8192, 10.0)
+        centers = [(energy - intercept) / slope for energy in ENERGIES]
+        for center in [*centers, 259.0, 814.0]:
+            counts += 250 * np.exp(-0.5 * ((channels - center) / 1.7) ** 2)
+        spectrum = Spectrum("synthetic-interference", channels, counts, 1000)
+        candidates = np.sort(np.array([*map(round, centers), 259, 814], dtype=float))
+        with patch("app.services.spectrum.find_candidate_peaks", return_value=candidates) as candidate_search:
+            calibration = auto_calibrate(spectrum)
+        candidate_search.assert_called_once_with(spectrum, limit=60)
+        self.assertLess(calibration.rms_keV, 0.1)
+        self.assertAlmostEqual(calibration.slope, slope, delta=0.0001)
+        self.assertFalse(any(energy in {80.9979, 244.6974} for _, energy in calibration.matched_points))
+
+    def test_mass_metadata_requires_sample_label_and_explicit_unit(self):
+        # Explicit sample metadata only, not calibration-source or filename mass.
+        for field, expected in [("SAMPLE_MASS_G=245", 245), ("样品质量(kg)=0.244", 244),
+                                ("NET_MASS=310 g", 310), ("MASS=337.76", None),
+                                ("SAMPLE_MASS=245", None)]:
+            result = inspect_spectrum_metadata("sample.txt", (field + "\nTLIVE=100\n").encode())
+            self.assertEqual(result["sample_mass_g"], expected)
+
+    def test_auto_calibration_ranks_only_consistent_hypotheses(self):
+        channels = np.arange(8192, dtype=float)
+        counts = np.full(8192, 10.0)
+        true_centers = [(e - .09) / .297 for e in ENERGIES]
+        false_energies = [*ENERGIES, 661.657, 1173.228, 1332.492]
+        false_centers = [(e - 161.7 + (1.3 if i % 2 else -1.3)) / .2754
+                         for i, e in enumerate(false_energies)]
+        candidates = np.sort(np.asarray([*map(round, true_centers), *map(round, false_centers)], dtype=float))
+        for center in [*true_centers, *false_centers]:
+            counts += 200 * np.exp(-.5 * ((channels - center) / 1.5) ** 2)
+        spectrum = Spectrum("synthetic-false-hypothesis", channels, counts, 1000)
+        with patch("app.services.spectrum.find_candidate_peaks", return_value=candidates):
+            calibration = auto_calibrate(spectrum, tolerance_keV=2.2)
+        self.assertAlmostEqual(calibration.slope, .297, delta=.0001)
+        self.assertLess(abs(calibration.intercept), .5)
+        self.assertGreaterEqual(len(calibration.matched_points), 7)
+
+    def test_conditional_estimates_are_exported_separately_from_formal_values(self):
+        from pypdf import PdfReader
+        result = analyze_batch(synthetic("standard", 1), [synthetic("sample", .3)], [244],
+                               AnalysisSettings(), {"calibration": {"slope": .2, "intercept": .1},
+                                                    "sample": {"slope": .2, "intercept": .1}})
+        estimates = _conditional_rows(result)
+        self.assertEqual(len(estimates), 1)
+        workbook = load_workbook(BytesIO(export_xlsx(result, "en")), data_only=True)
+        self.assertIsNone(workbook["Specific Activity"]["C4"].value)
+        self.assertGreater(workbook["Conditional Estimates"]["E3"].value, 0)
+        text = "\n".join(page.extract_text() for page in PdfReader(BytesIO(export_pdf(result, "en"))).pages)
+        self.assertIn("Conditional estimates", text)
+        for language, sheet_name in (("zh", "条件性估算"), ("zht", "條件性估算"),
+                                     ("en", "Conditional Estimates"), ("fr", "Estimations conditionnelles")):
+            book = load_workbook(BytesIO(export_xlsx(result, language)), data_only=True)
+            estimate_sheet = book[sheet_name]
+            self.assertIsInstance(estimate_sheet["E3"].value, (int, float))
+            self.assertGreater(len(estimate_sheet["A1"].value), 20)
+            pdf_text = "\n".join(page.extract_text() for page in PdfReader(BytesIO(export_pdf(result, language))).pages)
+            self.assertIn(" ".join(estimate_sheet["A1"].value.split()), " ".join(pdf_text.split()))
+            self.assertTrue(export_png(result, language).startswith(b"\x89PNG"))
+        source = (ROOT / "app/static/app.js").read_text(encoding="utf-8")
+        helper = source.split("function summaryValue", 1)[1].split("\n", 1)[0]
+        self.assertNotIn("estimateShort", helper)
+        self.assertNotIn("<small", helper)
+        result["results"][0]["quality"]["workflow_status"] = "blocked"
+        self.assertEqual(_conditional_rows(result), [])
+
     @staticmethod
     def _signed(result):
         return attach_evidence(result, input_files=[], parameters={}, standard_identity={})
