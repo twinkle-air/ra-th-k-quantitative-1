@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 import json
 import math
@@ -12,10 +12,9 @@ import numpy as np
 from .parsers import Spectrum
 from .spectrum import Calibration, PeakArea, auto_calibrate, fit_manual_calibration, integrate_peak
 from .quality import apply_quality_gates
+from .activity_units import NUCLEAR_DATA_FILE, NUCLEAR_DATA, ACTIVITY_CONVERSION
 
 
-NUCLEAR_DATA_FILE = Path(__file__).resolve().parents[2] / "data" / "nuclear_data.json"
-NUCLEAR_DATA = json.loads(NUCLEAR_DATA_FILE.read_text(encoding="utf-8"))
 
 
 GAMMA_LINES = NUCLEAR_DATA["gamma_lines"]
@@ -31,7 +30,6 @@ PEAK_REFERENCES = [
 ]
 
 HALF_LIFE_YEARS = NUCLEAR_DATA["half_life_years"]
-ACTIVITY_CONVERSION = NUCLEAR_DATA["activity_conversion"]
 DEFAULT_REFERENCE_ACTIVITIES_BQ = {"Ra226": 903.0, "Th232": 483.0, "K40": 668.0}
 
 # Legacy empirical profile established from the supplied five-sample DOCX reference.
@@ -62,8 +60,8 @@ AC228_ENERGY_RATIO = AC228_INTERFERENCE["energy_keV"] / AC228_REFERENCE["energy_
 
 @dataclass
 class AnalysisSettings:
-    calibration_mass_g: float = 337.76
-    reference_date: str = "2015-01-25"
+    calibration_mass_g: float | None = None
+    reference_date: str | None = None
     reference_activities_bq: dict[str, float] | None = None
     roi_half_width_keV: float = 2.4
     background_gap_keV: float = 1.5
@@ -78,10 +76,10 @@ class AnalysisSettings:
     geometry_match: bool | None = None
     matrix_match: bool | None = None
     multi_peak_max_relative_deviation_percent: float = 30.0
+    parameter_provenance: dict = field(default_factory=dict)
+    standard_parameter_issues: list = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        if self.reference_activities_bq is None:
-            self.reference_activities_bq = dict(DEFAULT_REFERENCE_ACTIVITIES_BQ)
         if self.multi_peak_max_relative_deviation_percent <= 0:
             raise ValueError("多峰一致性阈值必须大于0。")
 
@@ -280,6 +278,12 @@ def analyze_batch(
     settings: AnalysisSettings,
     calibration_specs: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    from .standard_parameters import resolve_standard
+    # No direct Python caller may bypass assigned-value validation either.
+    assigned = resolve_standard({'source_kind': 'custom', 'calibration_mass_g': settings.calibration_mass_g,
+        'reference_date': settings.reference_date, 'reference_activities_bq': settings.reference_activities_bq}, b'')
+    if assigned['standard_parameter_issues'] or settings.standard_parameter_issues:
+        raise ValueError('blocked_missing_standard_parameter: explicit standard assignments are required.')
     if settings.apply_builtin_validation_profile and not (
         settings.source_kind == "bundled" and settings.bundled_file_content_matches
     ):
@@ -414,7 +418,7 @@ def analyze_batch(
             "ac228_correction_cps": correction_sample,
         }]
 
-        # 226Ra specific activity is about 3.66e10 Bq/kg; 1 ppm = 1 mg/kg.
+        # 226Ra specific activity is about 3.66e10 Bq/g; 1 ppm = 1 mg/kg.
         ra_ppm = activities["Ra226"] / ACTIVITY_CONVERSION["ra226_bq_kg_per_ppm"] if math.isfinite(activities["Ra226"]) else None
         th_ppm = activities["Th232"] / ACTIVITY_CONVERSION["th232_bq_kg_per_ppm"] if math.isfinite(activities["Th232"]) else None
         k_percent = activities["K40"] / ACTIVITY_CONVERSION["k40_bq_kg_per_percent_k"] if math.isfinite(activities["K40"]) else None
@@ -462,6 +466,7 @@ def analyze_batch(
         "results": results,
         "constants": {
             **ACTIVITY_CONVERSION,
+            "content_conversion_basis": NUCLEAR_DATA["content_conversion_basis"],
             "validation_profile": (BUILTIN_VALIDATION_PROFILE if settings.apply_builtin_validation_profile else None),
         },
         "peak_references": PEAK_REFERENCES,

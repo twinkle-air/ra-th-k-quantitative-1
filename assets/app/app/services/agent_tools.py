@@ -14,6 +14,7 @@ from .evidence import attach_evidence, file_identity, verify_evidence
 from .exporters import export_pdf, export_png, export_xlsx
 from .parsers import inspect_spectrum_metadata, parse_spectrum
 from .quality import input_gate, standard_provenance_issue
+from .standard_parameters import resolve_standard
 from .report_validation import require_exportable_analysis
 from ..version import TOOL_SCHEMA_VERSION
 
@@ -81,6 +82,8 @@ def _read(path_value: str) -> tuple[Path, bytes]:
     path = Path(path_value).expanduser().resolve()
     if not path.is_file():
         raise FileNotFoundError(path)
+    if path.stat().st_size > 20 * 1024 * 1024:
+        raise ValueError('Input file exceeds the 20 MiB local tool limit.')
     return path, path.read_bytes()
 
 
@@ -107,16 +110,15 @@ def inspect_spectrum(request: dict[str, Any]) -> dict[str, Any]:
     return envelope("inspect_spectrum", "ok", data=data)
 
 
-def _settings(request: dict[str, Any]) -> AnalysisSettings:
+def _settings(request: dict[str, Any], payload: bytes) -> AnalysisSettings:
     values = request.get("settings") or {}
+    standard = resolve_standard(values, payload)
     return AnalysisSettings(
-        calibration_mass_g=float(values.get("calibration_mass_g", 337.76)),
-        reference_date=str(values.get("reference_date", "2015-01-25")),
-        reference_activities_bq={
-            "Ra226": float((values.get("reference_activities_bq") or {}).get("Ra226", 903.0)),
-            "Th232": float((values.get("reference_activities_bq") or {}).get("Th232", 483.0)),
-            "K40": float((values.get("reference_activities_bq") or {}).get("K40", 668.0)),
-        },
+        calibration_mass_g=standard['calibration_mass_g'],
+        reference_date=standard['reference_date'],
+        reference_activities_bq=standard['reference_activities_bq'],
+        parameter_provenance=standard['parameter_provenance'],
+        standard_parameter_issues=standard['standard_parameter_issues'],
         roi_half_width_keV=float(values.get("roi_half_width_keV", 2.4)),
         background_gap_keV=float(values.get("background_gap_keV", 1.5)),
         background_width_keV=float(values.get("background_width_keV", 3.6)),
@@ -152,7 +154,7 @@ def _load_analysis_inputs(request: dict[str, Any]) -> tuple[Any, list[Any], list
         mass = item.get("mass_g")
         masses.append(float(mass) if mass is not None else float("nan"))
         identities.append(file_identity(path.name, payload, "sample"))
-    settings = _settings(request)
+    settings = _settings(request, calibration_payload)
     settings.bundled_file_content_matches = _bundled_file_matches(settings.source_kind, calibration_payload)
     return standard, samples, masses, settings, identities
 
@@ -160,8 +162,8 @@ def _load_analysis_inputs(request: dict[str, Any]) -> tuple[Any, list[Any], list
 def validate_inputs(request: dict[str, Any]) -> dict[str, Any]:
     calibration_request = _required(request, "calibration")
     samples_request = _required(request, "samples")
-    settings = _settings(request)
     calibration_path, calibration_payload = _read(str(_required(calibration_request, "path")))
+    settings = _settings(request, calibration_payload)
     settings.bundled_file_content_matches = _bundled_file_matches(settings.source_kind, calibration_payload)
     calibration_metadata = inspect_spectrum_metadata(calibration_path.name, calibration_payload)
     calibration_live = calibration_request.get("live_time_s") or calibration_metadata.get("live_time_s")
@@ -180,6 +182,9 @@ def validate_inputs(request: dict[str, Any]) -> dict[str, Any]:
         "calibration_live_time_s": calibration_live,
         "reference_activities_bq": settings.reference_activities_bq,
     })
+    gate['issues'].extend(settings.standard_parameter_issues)
+    if settings.standard_parameter_issues:
+        gate['workflow_status'] = 'blocked'
     supplemental: list[dict[str, Any]] = []
     if not calibration_metadata.get("acquired_at"):
         supplemental.append({
@@ -212,6 +217,8 @@ def validate_inputs(request: dict[str, Any]) -> dict[str, Any]:
         "workflow_status": status,
         "issues": issues,
         "input_files": identities,
+        "parameter_provenance": settings.parameter_provenance,
+        "missing_parameters": [i['scope'] for i in issues if i['severity'] == 'blocking'],
         "parsed": {
             "calibration_live_time_s": calibration_live,
             "sample_live_times_s": sample_live_times,
@@ -255,6 +262,8 @@ def analyze_ra_th_k(request: dict[str, Any]) -> dict[str, Any]:
         "activities_bq": settings.reference_activities_bq,
         "geometry_match": settings.geometry_match,
         "matrix_match": settings.matrix_match,
+        "parameter_provenance": settings.parameter_provenance,
+        "claims_independently_verified": False,
     }
     analysis = attach_evidence(
         analysis,

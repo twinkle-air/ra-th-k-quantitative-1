@@ -45,3 +45,6 @@ python scripts/start_app.py --install
 ```
 
 The first run installs the packages listed in `assets/app/requirements.txt` into `.runtime/venv`. Later runs can omit `--install`.
+
+## User-reported environment (2026-10-05)
+A feedback sender reported installation and 39 app + 6 behavior tests passing in Qoder with Python 3.14.7 on Windows. This is external user evidence, not a locally reproduced environment matrix or a guarantee for all 3.14 installations. Qoder may require `/skills reload` (if supported) or a new session after installation.

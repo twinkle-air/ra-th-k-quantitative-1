@@ -90,6 +90,8 @@ def main() -> int:
     for path in installed:
         print(f"Installed: {path}")
     print("Restart or reload the Agent if the Skill does not appear immediately.")
+    if "qoder" in tools:
+        print("Qoder: run /skills reload if supported by your version, or start a new session to load the updated Skill.")
     return 0
 
 

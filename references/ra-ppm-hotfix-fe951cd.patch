@@ -1,0 +1,115 @@
+--- a/assets/app/data/nuclear_data.json
++++ b/assets/app/data/nuclear_data.json
+@@ -33,7 +33,7 @@
+     "K40": 1248000000.0
+   },
+   "activity_conversion": {
+-    "ra226_bq_kg_per_ppm": 36600.0,
++    "ra226_bq_kg_per_ppm": 36575912.28408202,
+     "th232_bq_kg_per_ppm": 4.056,
+     "k40_bq_kg_per_percent_k": 311.0
+   },
+--- a/assets/app/app/services/analysis.py
++++ b/assets/app/app/services/analysis.py
+@@ -414,7 +414,7 @@
+             "ac228_correction_cps": correction_sample,
+         }]
+ 
+-        # 226Ra specific activity is about 3.66e10 Bq/kg; 1 ppm = 1 mg/kg.
++        # 226Ra specific activity is about 3.66e10 Bq/g; 1 ppm = 1 mg/kg.
+         ra_ppm = activities["Ra226"] / ACTIVITY_CONVERSION["ra226_bq_kg_per_ppm"] if math.isfinite(activities["Ra226"]) else None
+         th_ppm = activities["Th232"] / ACTIVITY_CONVERSION["th232_bq_kg_per_ppm"] if math.isfinite(activities["Th232"]) else None
+         k_percent = activities["K40"] / ACTIVITY_CONVERSION["k40_bq_kg_per_percent_k"] if math.isfinite(activities["K40"]) else None
+--- a/assets/app/app/static/app.js
++++ b/assets/app/app/static/app.js
+@@ -205,8 +205,8 @@
+ function num(v,d=4){return typeof v==='number'&&Number.isFinite(v)?v.toPrecision(d):'—'}
+ function reportableActivity(r,key){const q=r.quality?.nuclides?.[key];return q?q.reportable_activity_bq_kg:r.activity_bq_kg?.[key]}
+ function chartActivity(r,key){const q=r.quality?.nuclides?.[key];if(!q||q.detection_status!=='detected'||q.workflow_status==='blocked'||r.quality?.workflow_status==='blocked')return null;const formal=q.reportable_activity_bq_kg;if(Number.isFinite(formal)&&formal>0)return{value:formal,kind:'formal'};const estimate=q.estimated_activity_bq_kg;return q.workflow_status==='conditional_result'&&Number.isFinite(estimate)&&estimate>0?{value:estimate,kind:'estimate'}:null}
+-function reportableContent(r,key){const value=reportableActivity(r,key),divisor={Ra226:36600,Th232:4.056,K40:311}[key];return Number.isFinite(value)?value/divisor:null}
+-function summaryValue(r,key,content=false){const q=r.quality?.nuclides?.[key];if(r.quality?.workflow_status==='blocked'||!q||q.workflow_status==='blocked'||q.detection_status!=='detected')return '—';const formal=q.reportable_activity_bq_kg,value=Number.isFinite(formal)?formal:q.estimated_activity_bq_kg;if(!Number.isFinite(value))return '—';const divisor=content?{Ra226:36600,Th232:4.056,K40:311}[key]:1;return num(value/divisor,7)}
++function reportableContent(r,key){const value=reportableActivity(r,key),divisor={Ra226:36575912.28408202,Th232:4.056,K40:311}[key];return Number.isFinite(value)?value/divisor:null}
++function summaryValue(r,key,content=false){const q=r.quality?.nuclides?.[key];if(r.quality?.workflow_status==='blocked'||!q||q.workflow_status==='blocked'||q.detection_status!=='detected')return '—';const formal=q.reportable_activity_bq_kg,value=Number.isFinite(formal)?formal:q.estimated_activity_bq_kg;if(!Number.isFinite(value))return '—';const divisor=content?{Ra226:36575912.28408202,Th232:4.056,K40:311}[key]:1;return num(value/divisor,7)}
+ function calibrationEquation(calibration,includeUnit=true){const intercept=calibration?.intercept,negative=typeof intercept==='number'&&Number.isFinite(intercept)&&intercept<0,sign=negative?'−':'+',magnitude=negative?Math.abs(intercept):intercept;return`E = ${num(calibration?.slope,8)} × CH ${sign} ${num(magnitude,8)}${includeUnit?' keV':''}`}
+ function renderResults(data){
+   $('#summaryBody').innerHTML=data.results.map(r=>`<tr><td>${r.spectrum_no}</td><td>${escapeHtml(r.name)}</td><td>${summaryValue(r,'Ra226',true)}</td><td>${summaryValue(r,'Th232',true)}</td><td>${summaryValue(r,'K40',true)}</td><td class="${r.quality?.workflow_status==='ready_for_quantification'?'qc-ok':'qc-warn'}">${escapeHtml(qualityStatusLabel(r.quality?.workflow_status))}</td></tr>`).join('');
+--- a/assets/app/app/services/exporters.py
++++ b/assets/app/app/services/exporters.py
+@@ -162,7 +162,7 @@
+     activity = _reported_activity(item, nuclide)
+     if not isinstance(activity, (int, float)) or not math.isfinite(activity):
+         return None
+-    divisor = {"Ra226": 36600.0, "Th232": 4.056, "K40": 311.0}[nuclide]
++    divisor = {"Ra226": 36575912.28408202, "Th232": 4.056, "K40": 311.0}[nuclide]
+     return activity / divisor
+ 
+ 
+@@ -182,7 +182,7 @@
+ 
+ def _display_content(item: dict[str, Any], nuclide: str) -> float | None:
+     value = _display_activity(item, nuclide)
+-    return None if value is None else value / {"Ra226": 36600.0, "Th232": 4.056, "K40": 311.0}[nuclide]
++    return None if value is None else value / {"Ra226": 36575912.28408202, "Th232": 4.056, "K40": 311.0}[nuclide]
+ 
+ 
+ def _conditional_rows(analysis: dict[str, Any]) -> list[list[Any]]:
+@@ -194,7 +194,7 @@
+         if not any(value is not None for value in values.values()):
+             continue
+         rows.append([item.get("name"),
+-                     values["Ra226"] / 36600 if values["Ra226"] is not None else None,
++                     values["Ra226"] / 36575912.28408202 if values["Ra226"] is not None else None,
+                      values["Th232"] / 4.056 if values["Th232"] is not None else None,
+                      values["K40"] / 311 if values["K40"] is not None else None,
+                      values["Th232"], values["Ra226"], values["K40"]])
+@@ -635,7 +635,7 @@
+     meta = wb.create_sheet(_tr(language, "method_sheet"))
+     method_rows = [
+         (_tr(language, "method"), _tr(language, "method_value")),
+-        (_tr(language, "ra_conversion"), "Ra (ppm) = A(Ra-226) / 36600"),
++        (_tr(language, "ra_conversion"), "Ra (ppm) = A(Ra-226) / 36575912.28408202"),
+         (_tr(language, "th_conversion"), "Th (ppm) = A(Th-232) / 4.056"),
+         (_tr(language, "k_conversion"), "K (%) = A(K-40) / 311"),
+         (_tr(language, "validity"), _tr(language, "validity_value")),
+--- a/assets/app/app/services/report_templates.py
++++ b/assets/app/app/services/report_templates.py
+@@ -259,7 +259,7 @@
+         "sample.no": str(row.get("spectrum_no", "—")),
+         "sample.name": str(row.get("name", "—")),
+         "sample.mass_g": _number(row.get("mass_g")),
+-        "sample.ra_ppm": _number(reportable["Ra226"] / 36600 if reportable["Ra226"] is not None else None),
++        "sample.ra_ppm": _number(reportable["Ra226"] / 36575912.28408202 if reportable["Ra226"] is not None else None),
+         "sample.th_ppm": _number(reportable["Th232"] / 4.056 if reportable["Th232"] is not None else None),
+         "sample.k_percent": _number(reportable["K40"] / 311 if reportable["K40"] is not None else None),
+         "sample.ra_bq_kg": _number(reportable["Ra226"]),
+--- a/references/METHOD.md
++++ b/references/METHOD.md
+@@ -51,7 +51,7 @@
+ 
+ The application reports activity concentration in Bq/kg and also provides conventional content estimates using:
+ 
+-- `Ra (ppm) = Ra-226 activity (Bq/kg) / 36600`
++- `Ra (ppm) = Ra-226 activity (Bq/kg) / 36575912.28408202`
+ - `Th (ppm) = Th-232 activity (Bq/kg) / 4.056`
+ - `K (%) = K-40 activity (Bq/kg) / 311`
+ 
+--- a/assets/app/tests/test_core.py
++++ b/assets/app/tests/test_core.py
+@@ -127,7 +127,7 @@
+             "Ra226": {"workflow_status": "conditional_result", "detection_status": "detected",
+                       "reportable_activity_bq_kg": None, "estimated_activity_bq_kg": 3351.666}}}}
+         self.assertEqual(_display_activity(row, "Ra226"), 3351.666)
+-        self.assertAlmostEqual(_display_content(row, "Ra226"), 3351.666 / 36600)
++        self.assertAlmostEqual(_display_content(row, "Ra226"), 3351.666 / 36575912.28408202)
+         self.assertIsNone(_reported_activity(row, "Ra226"))
+         q = row["quality"]["nuclides"]["Ra226"]
+         q["detection_status"] = "not_detected"
+@@ -263,7 +263,7 @@
+         row = result["results"][0]
+         # Half the standard count rate in a 0.5 kg sample reproduces the standard's total Bq as Bq/kg.
+         self.assertAlmostEqual(row["activity_bq_kg"]["Ra226"], 903.0, delta=3.0)
+-        self.assertAlmostEqual(row["ra_ppm"], 903.0 / 36600.0, delta=0.0002)
++        self.assertAlmostEqual(row["ra_ppm"], 903.0 / 36575912.28408202, delta=0.0002)
+         self.assertAlmostEqual(row["th_ppm"], 483.0 / 4.056, delta=0.5)
+         self.assertAlmostEqual(row["k_percent"], 668.0 / 311.0, delta=0.03)
+         first_peak = row["peaks"]["Th232"][0]

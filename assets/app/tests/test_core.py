@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from app.services.analysis import (
-    AnalysisSettings, EFFICIENCY_LINE_DATA, _k40_efficiency_from_ra_th,
+    AnalysisSettings as ProductionSettings, EFFICIENCY_LINE_DATA, _k40_efficiency_from_ra_th,
     _validated_th232_activity, analyze_batch,
 )
 from app.services.exporters import _calibration_equation, _chart_activity, _conditional_rows, _display_activity, _display_content, _reported_activity, _result_note, export_pdf, export_png, export_xlsx
@@ -31,6 +31,11 @@ from app.services.spectrum import Calibration, PeakArea, auto_calibrate, fit_man
 
 
 ENERGIES = [238.632, 295.224, 351.932, 583.187, 609.312, 911.204, 1460.822]
+
+def AnalysisSettings(**overrides):
+    """Explicit synthetic-fixture assignments, never production defaults."""
+    return ProductionSettings(**{'calibration_mass_g':337.76, 'reference_date':'2015-01-25',
+        'reference_activities_bq':{'Ra226':903., 'Th232':483., 'K40':668.}, **overrides})
 
 
 def synthetic(name: str, scale: float, mass_g: float = 500.0) -> Spectrum:
@@ -112,7 +117,7 @@ class CoreTests(unittest.TestCase):
             pdf_text = "\n".join(page.extract_text() for page in PdfReader(BytesIO(export_pdf(result, language))).pages)
             self.assertIn(" ".join(estimate_sheet["A1"].value.split()), " ".join(pdf_text.split()))
             self.assertIn(" ".join(_result_note(result, language).split()), " ".join(pdf_text.split()))
-            self.assertIn(f"{_display_content(result['results'][0], 'Ra226'):.7g}", pdf_text.split("Conditional estimates")[0])
+            self.assertIn(f"{_display_content(result['results'][0], 'Ra226'):.3g}", pdf_text.split("Conditional estimates")[0])
             self.assertTrue(export_png(result, language).startswith(b"\x89PNG"))
         source = (ROOT / "app/static/app.js").read_text(encoding="utf-8")
         helper = source.split("function summaryValue", 1)[1].split("\n", 1)[0]
@@ -127,7 +132,7 @@ class CoreTests(unittest.TestCase):
             "Ra226": {"workflow_status": "conditional_result", "detection_status": "detected",
                       "reportable_activity_bq_kg": None, "estimated_activity_bq_kg": 3351.666}}}}
         self.assertEqual(_display_activity(row, "Ra226"), 3351.666)
-        self.assertAlmostEqual(_display_content(row, "Ra226"), 3351.666 / 36600)
+        self.assertAlmostEqual(_display_content(row, "Ra226"), 3351.666 / 36575912.28408202)
         self.assertIsNone(_reported_activity(row, "Ra226"))
         q = row["quality"]["nuclides"]["Ra226"]
         q["detection_status"] = "not_detected"
@@ -263,7 +268,7 @@ class CoreTests(unittest.TestCase):
         row = result["results"][0]
         # Half the standard count rate in a 0.5 kg sample reproduces the standard's total Bq as Bq/kg.
         self.assertAlmostEqual(row["activity_bq_kg"]["Ra226"], 903.0, delta=3.0)
-        self.assertAlmostEqual(row["ra_ppm"], 903.0 / 36600.0, delta=0.0002)
+        self.assertAlmostEqual(row["ra_ppm"], 903.0 / 36575912.28408202, delta=0.0002)
         self.assertAlmostEqual(row["th_ppm"], 483.0 / 4.056, delta=0.5)
         self.assertAlmostEqual(row["k_percent"], 668.0 / 311.0, delta=0.03)
         first_peak = row["peaks"]["Th232"][0]

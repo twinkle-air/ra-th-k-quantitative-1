@@ -1,0 +1,11 @@
+{
+  "evidence_class": "planned host routing cases, not observed routing results",
+  "cases": [
+    {"prompt":"分析土壤镭钍钾含量", "should_trigger":true},
+    {"prompt":"用 HPGe 谱和刻度源计算 Ra/Th/K 比活度", "should_trigger":true},
+    {"prompt":"检查该定量报告的质控", "should_trigger":true},
+    {"prompt":"把剂量率换成元素含量", "should_trigger":false},
+    {"prompt":"识别任意核素", "should_trigger":false},
+    {"prompt":"用 NaI 谱套用 HPGe 定量", "should_trigger":false}
+  ]
+}

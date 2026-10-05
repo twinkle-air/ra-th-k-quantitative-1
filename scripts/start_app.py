@@ -53,6 +53,8 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--install", action="store_true", help="Create a local venv and install dependencies.")
     args = parser.parse_args()
+    if args.host not in {'127.0.0.1', 'localhost', '::1'}:
+        parser.error('This workbench is local-only; public/network listening is not supported.')
     if not (APP_ROOT / "app" / "main.py").exists():
         raise FileNotFoundError(f"Bundled application is missing: {APP_ROOT}")
     python = choose_python(args.install)

@@ -1,6 +1,6 @@
 {
   "dataset_id": "rtk-workflow-adopted-data-1",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "status": "workflow-adopted-not-certified-library",
   "scope": "Ra-226 and Th-232 daughter lines plus K-40 used by this Skill",
   "sources": [
@@ -15,7 +15,7 @@
     "half_life_years.Ra226": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3, live database", "exact_value_verified": false},
     "half_life_years.Th232": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3, live database", "exact_value_verified": false},
     "half_life_years.K40": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.bipm.org/documents/d/guest/k-40_report", "source_version": "DDEP K-40 evaluation, May 2025", "exact_value_verified": false, "known_difference": "project uses 1.248e9 y; 2025 DDEP lists 1.2522e9 y"},
-    "activity_conversion.ra226_bq_kg_per_ppm": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3 plus isotope abundance and atomic mass", "exact_value_verified": false},
+    "activity_conversion.ra226_bq_kg_per_ppm": {"adopted_from": "derived: ln(2)*N_A/(T_half_seconds*M_g_mol)*0.001 g/kg", "check_source": "https://physics.nist.gov/PhysRefData/Handbook/Tables/radiumtable1_a.htm", "source_version": "NIST Atomic Data for Radium (legacy mass 226.0254); BIPM-5 Volume 4 (2008) Ra-226 half-life 1600(7) a", "exact_value_verified": true, "verification_scope": "unit conversion at the declared adopted inputs, not all nuclear data or measurement accuracy", "checked_on": "2026-10-05"},
     "activity_conversion.th232_bq_kg_per_ppm": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3 plus isotope abundance and atomic mass", "exact_value_verified": false},
     "activity_conversion.k40_bq_kg_per_percent_k": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.bipm.org/documents/d/guest/k-40_report", "source_version": "DDEP K-40 evaluation, May 2025, plus natural abundance", "exact_value_verified": false},
     "gamma_lines.Th232.Pb-212.238.632": {"adopted_from": "project legacy data v1.4", "check_source": "https://www.nndc.bnl.gov/nudat3/", "source_version": "NuDat 3, Pb-212 record", "exact_value_verified": false},
@@ -33,9 +33,12 @@
     "K40": 1248000000.0
   },
   "activity_conversion": {
-    "ra226_bq_kg_per_ppm": 36600.0,
+    "ra226_bq_kg_per_ppm": 36575912.28408202,
     "th232_bq_kg_per_ppm": 4.056,
     "k40_bq_kg_per_percent_k": 311.0
+  },
+  "content_conversion_basis": {
+    "Ra226": {"molar_mass_g_mol": 226.0254, "mass_fraction_definition": "1 ppm = 1 mg Ra-226/kg", "year_days": 365.25, "avogadro_mol_inverse": 6.02214076e23, "half_life_source": "BIPM-5 Volume 4 (2008), Ra-226: 1600(7) a", "mass_source": "NIST Atomic Data for Radium, legacy table; not a claim of latest mass evaluation"}
   },
   "gamma_lines": [
     {"target": "Th232", "emitter": "Pb-212", "energy_keV": 238.632, "emission_probability": 0.4360},

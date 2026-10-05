@@ -51,7 +51,7 @@ The analysis target and the actual gamma emitter are deliberately distinguished.
 
 The application reports activity concentration in Bq/kg and also provides conventional content estimates using:
 
-- `Ra (ppm) = Ra-226 activity (Bq/kg) / 36600`
+- `Ra (ppm) = Ra-226 activity (Bq/kg) / 36575912.28408202; 1 ppm = 1 mg Ra-226/kg`
 - `Th (ppm) = Th-232 activity (Bq/kg) / 4.056`
 - `K (%) = K-40 activity (Bq/kg) / 311`
 

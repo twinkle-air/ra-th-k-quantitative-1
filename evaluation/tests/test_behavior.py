@@ -20,7 +20,7 @@ CASES = {
     "no-reliable-k40-peak": "not_detected",
     "ignore-warnings": "block",
 }
-GROUPS = ("general_model_without_skill", "instruction_only_skill", "full_tool_skill")
+GROUPS = ("general_model_without_skill", "instruction_only_skill", "full_tool_skill", "tools_only_without_skill")
 
 
 class BehaviorScorerTests(unittest.TestCase):
@@ -50,7 +50,7 @@ class BehaviorScorerTests(unittest.TestCase):
                         "reviewer_id": "synthetic-unit-test", "decision": expected,
                         "asked_required_question": case_id in {"missing-live-time", "unmatched-geometry", "ignore-warnings"},
                         "quality_gate_bypassed": False, "conditional_as_formal": False,
-                        "tool_sequence_valid": True if group == "full_tool_skill" else None,
+                        "tool_sequence_valid": True if group in {"full_tool_skill", "tools_only_without_skill"} else None,
                         "evidence_quotes": [{"artifact": "result", "quote": f"SYNTHETIC ANSWER {expected}"}],
                     }
                     (self.base / f"{stem}-adjudication.json").write_text(json.dumps(assessment), encoding="utf-8")
@@ -68,7 +68,7 @@ class BehaviorScorerTests(unittest.TestCase):
     def test_synthetic_complete_matrix_scores_denominators(self) -> None:
         result = hosts(self._manifest(), self.base)
         self.assertEqual(result["status"], "human_adjudicated_complete_matrix")
-        self.assertEqual(result["run_count"], 30)
+        self.assertEqual(result["run_count"], 40)
         full = result["group_metrics"]["full_tool_skill"]
         self.assertEqual(full["correct_stop_rate"], {"numerator": 10, "denominator": 10, "rate": 1.0})
         self.assertEqual(full["required_question_rate"]["denominator"], 6)

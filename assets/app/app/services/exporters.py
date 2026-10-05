@@ -5,6 +5,8 @@ import json
 import math
 from pathlib import Path
 from typing import Any
+from html import escape
+from .activity_units import CONTENT_DIVISORS, activity_to_content
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -72,10 +74,10 @@ _DETECTION_TEXT = {
     "fr": {"critical_level": "Seuil de décision Lc (comptages)", "detection": "Détection", "detected": "Détecté", "not_detected": "Non détecté", "background_method": "Méthode du fond"},
 }
 _CONDITIONAL_NOTES = {
-    "zh": "声明：质控状态为条件性结果的数值仅为估算值，不作为正式可报告结果；使用前须复核测量条件及质控原因。阻断或未检出的数值不显示。",
-    "zht": "聲明：品管狀態為條件性結果的數值僅為估算值，不作為正式可報告結果；使用前須複核測量條件及品管原因。阻斷或未檢出的數值不顯示。",
-    "en": "Declaration: values with conditional QC status are estimates, not formally reportable results. Review measurement conditions and QC reasons before use. Blocked or undetected values are omitted.",
-    "fr": "Déclaration : les valeurs de statut CQ conditionnel sont des estimations, non des résultats officiellement recevables. Vérifier les conditions de mesure et les motifs CQ avant utilisation. Les valeurs bloquées ou non détectées sont omises.",
+    "zh": "声明：逐核素质控标为估算的数值仅为条件性估算，不作为正式可报告结果；使用前须复核测量条件及质控原因。阻断或未检出的数值不显示。",
+    "zht": "聲明：逐核素品管標為估算的數值僅為條件性估算，不作為正式可報告結果；使用前須複核測量條件及品管原因。阻斷或未檢出的數值不顯示。",
+    "en": "Declaration: values labelled as estimates in per-nuclide QC are conditional estimates, not formally reportable results. Review measurement conditions and QC reasons before use. Blocked or undetected values are omitted.",
+    "fr": "Déclaration : les valeurs marquées estimées par radionucléide sont conditionnelles, non des résultats officiellement recevables. Vérifier les conditions de mesure et les motifs CQ avant utilisation. Les valeurs bloquées ou non détectées sont omises.",
 }
 _QC_TEXT = {
     "zh": {"qc": "质控状态", "ready_for_quantification": "可定量", "conditional_result": "条件性结果", "blocked": "已阻断", "unknown": "未知"},
@@ -86,7 +88,17 @@ _QC_TEXT = {
 
 
 def _qc_label(item: dict[str, Any], language: str) -> str:
-    return _QC_TEXT[language].get(item.get("quality", {}).get("workflow_status"), _QC_TEXT[language]["unknown"])
+    overall = _QC_TEXT[language].get(item.get("quality", {}).get("workflow_status"), _QC_TEXT[language]["unknown"])
+    labels = {'zh': ['正式','估算','未检出','阻断'], 'zht': ['正式','估算','未檢出','阻斷'],
+              'en': ['formal','estimate','ND','blocked'], 'fr': ['officiel','estimé','ND','bloqué']}[language]
+    parts = []
+    for key, name in [('Ra226','Ra'), ('Th232','Th'), ('K40','K')]:
+        q = item.get('quality', {}).get('nuclides', {}).get(key, {})
+        index = (3 if item.get('quality', {}).get('workflow_status') == 'blocked' or q.get('workflow_status') == 'blocked'
+                 else 2 if q.get('detection_status') == 'not_detected'
+                 else 0 if q.get('reportable_activity_bq_kg') is not None else 1)
+        parts.append(f'{name}: {labels[index]}')
+    return overall + '\n' + '\n'.join(parts)
 _CHART_TEXT = {
     "zh": {"estimate": "条件性估算（非正式结果）", "chart_note": "浅色柱仅为条件性估算；阻断、未检出及非正值不绘制。", "chart_no_values": "无可绘制的已检出正值。", "chart_no_formal": "本组无可正式报告的比活度。"},
     "zht": {"estimate": "條件性估算（非正式結果）", "chart_note": "淺色柱僅為條件性估算；阻斷、未檢出及非正值不繪製。", "chart_no_values": "無可繪製的已檢出正值。", "chart_no_formal": "本組無可正式報告的比活度。"},
@@ -107,8 +119,56 @@ def _result_note(analysis: dict[str, Any], language: str) -> str:
     base = _tr(language, "note")
     if any(status.get("reportable_activity_bq_kg") is None for row in analysis.get("results", [])
            for status in row.get("quality", {}).get("nuclides", {}).values()):
-        return _CONDITIONAL_NOTES[language]
-    return base
+        base = _CONDITIONAL_NOTES[language]
+    return base + " " + " | ".join(_qc_reasons(analysis, language))
+
+
+def _qc_reasons(analysis: dict[str, Any], language: str) -> list[str]:
+    """Keep machine codes intact, with localized explanations in presentation reports."""
+    labels = {
+        'conditional_unverified_standard': ['源证书未核验', '源證書未核驗', 'Standard certificate unverified', 'Certificat non vérifié'],
+        'conditional_bundled_standard_documentation_unverified': ['内置源原始定值文件未独立核验', '內建源原始定值文件未獨立核驗', 'Built-in source assignment documents not independently verified', 'Documents de la source intégrée non vérifiés indépendamment'],
+        'conditional_missing_standard_acquisition_time': ['源采集时间缺失，未作衰变校正', '源採集時間缺失，未作衰變校正', 'Missing source acquisition time; no decay correction', 'Date de mesure absente ; sans correction de décroissance'],
+        'conditional_unmatched_geometry': ['几何匹配未核实', '幾何匹配未核實', 'Geometry match unverified', 'Géométrie non vérifiée'],
+        'conditional_unmatched_matrix': ['基质匹配未核实', '基質匹配未核實', 'Matrix match unverified', 'Matrice non vérifiée'],
+        'conditional_unconfirmed_equilibrium': ['平衡未确认，仅为子体等效值', '平衡未確認，僅為子體等效值', 'Equilibrium unconfirmed; daughter-equivalent only', 'Équilibre non confirmé ; équivalent des descendants'],
+        'conditional_multi_peak_inconsistency': ['多峰不一致', '多峰不一致', 'Inconsistent multiple peaks', 'Raies incohérentes'],
+        'conditional_legacy_empirical_profile': ['经验配置非独立验证', '經驗配置非獨立驗證', 'Empirical profile is not independent validation', 'Profil empirique non validé indépendamment'],
+        'not_detected': ['未超过检出判定阈值', '未超過檢出判定閾值', 'Below decision threshold', 'Sous le seuil de décision'],
+        'blocked_calibration_failure': ['能量刻度失效', '能量刻度失效', 'Energy calibration failure', 'Échec de l’étalonnage'],
+    }
+    index = ['zh', 'zht', 'en', 'fr'].index(language)
+    lines = []
+    for row in analysis.get('results', []):
+        for issue in row.get('quality', {}).get('issues', []):
+            code = issue.get('code', 'unknown')
+            explanation = labels.get(code, [issue.get('message', code)] * 4)[index]
+            line = f"{row.get('name', '')} [{issue.get('scope', '')}] {code}: {explanation}"
+            if line not in lines:
+                lines.append(line)
+    return lines
+
+
+def _residual_rows(item: dict[str, Any]) -> list[list[float]]:
+    cal = item.get('calibration', {})
+    rows = []
+    for channel, energy in cal.get('matched_points', []):
+        delta = cal['slope'] * channel + cal['intercept'] - energy
+        rows.append([channel, energy, delta, abs(delta)])
+    return rows
+
+
+def _counting_note(analysis: dict[str, Any], language: str) -> str:
+    title = {'zh': '计数统计标准不确定度 u（非完整测量不确定度）',
+             'zht': '計數統計標準不確定度 u（非完整測量不確定度）',
+             'en': 'Counting statistical standard uncertainty u (not total measurement uncertainty)',
+             'fr': 'Incertitude-type statistique de comptage u (non totale)'}[language]
+    lines = [title]
+    for row in analysis.get('results', []):
+        for key, value in row.get('counting_standard_uncertainty_bq_kg', {}).items():
+            if _display_activity(row, key) is not None:
+                lines.append(f"{row.get('name')}: {_nuclide_label(key)} u={_number(value, 2)} Bq/kg")
+    return ' | '.join(lines)
 
 for _language, _values in _DETECTION_TEXT.items():
     _TEXT[_language].update(_values)
@@ -162,8 +222,7 @@ def _reported_content(item: dict[str, Any], nuclide: str) -> float | None:
     activity = _reported_activity(item, nuclide)
     if not isinstance(activity, (int, float)) or not math.isfinite(activity):
         return None
-    divisor = {"Ra226": 36600.0, "Th232": 4.056, "K40": 311.0}[nuclide]
-    return activity / divisor
+    return activity_to_content(activity, nuclide)
 
 
 def _display_activity(item: dict[str, Any], nuclide: str) -> float | None:
@@ -182,7 +241,7 @@ def _display_activity(item: dict[str, Any], nuclide: str) -> float | None:
 
 def _display_content(item: dict[str, Any], nuclide: str) -> float | None:
     value = _display_activity(item, nuclide)
-    return None if value is None else value / {"Ra226": 36600.0, "Th232": 4.056, "K40": 311.0}[nuclide]
+    return activity_to_content(value, nuclide)
 
 
 def _conditional_rows(analysis: dict[str, Any]) -> list[list[Any]]:
@@ -194,7 +253,7 @@ def _conditional_rows(analysis: dict[str, Any]) -> list[list[Any]]:
         if not any(value is not None for value in values.values()):
             continue
         rows.append([item.get("name"),
-                     values["Ra226"] / 36600 if values["Ra226"] is not None else None,
+                     activity_to_content(values["Ra226"], "Ra226"),
                      values["Th232"] / 4.056 if values["Th232"] is not None else None,
                      values["K40"] / 311 if values["K40"] is not None else None,
                      values["Th232"], values["Ra226"], values["K40"]])
@@ -376,7 +435,8 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
                   _display_content(item, "Th232"), _display_content(item, "K40"), item.get("mass_g"), _qc_label(item, language)]
         for col, value in enumerate(values, 1):
             ws.cell(row, col, value)
-            ws.cell(row, col).alignment = Alignment(horizontal="center")
+            ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        ws.row_dimensions[row].height = 72
     thin = Side(style="thin", color="7C8C96")
     for row in ws.iter_rows(min_row=3, max_row=max(3, ws.max_row), min_col=1, max_col=len(headers)):
         for cell in row:
@@ -388,8 +448,21 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
     note_row = len(analysis.get("results", [])) + 5
     ws.merge_cells(start_row=note_row, start_column=1, end_row=note_row, end_column=7)
     ws.cell(note_row, 1, _result_note(analysis, language)).alignment = Alignment(wrap_text=True, vertical="top")
-    ws.row_dimensions[note_row].height = 48
+    ws.row_dimensions[note_row].height = max(48, len(_result_note(analysis, language)) // 100 * 15)
 
+    for row in ws.iter_rows(min_row=4, max_row=3 + len(analysis.get("results", [])), min_col=3, max_col=5):
+        for cell in row:
+            cell.number_format = "0.00E+00"
+    uncertainty_sheet = wb.create_sheet("u_counting")
+    uncertainty_sheet.append([_counting_note(analysis, language)])
+    uncertainty_sheet.append([_tr(language, "sample"), "Nuclide", "u (Bq/kg)", "Scope"])
+    residual_sheet = wb.create_sheet("Calibration Residuals")
+    residual_sheet.append([_tr(language, "sample"), _tr(language, "channel"), _tr(language, "reference_energy"), "ΔE = Efit − Eref (keV)", "|ΔE| (keV)"])
+    for item in analysis.get("results", []):
+        for key, value in item.get("counting_standard_uncertainty_bq_kg", {}).items():
+            uncertainty_sheet.append([item.get("name"), _nuclide_label(key), value, "counting_statistics_only"])
+        for values in _residual_rows(item):
+            residual_sheet.append([item.get("name"), *values])
     estimates = _conditional_rows(analysis)
     if estimates:
         sheet_name = {"zh": "条件性估算", "zht": "條件性估算", "en": "Conditional Estimates", "fr": "Estimations conditionnelles"}[language]
@@ -424,7 +497,8 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
                   _display_activity(item, "K40"), _qc_label(item, language)]
         for col, value in enumerate(values, 1):
             activity.cell(row, col, value)
-            activity.cell(row, col).alignment = Alignment(horizontal="center")
+            activity.cell(row, col).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        activity.row_dimensions[row].height = 72
     for row in activity.iter_rows(min_row=3, max_row=max(3, activity.max_row), min_col=1, max_col=6):
         for cell in row:
             cell.border = Border(left=thin, right=thin, top=thin, bottom=thin)
@@ -635,7 +709,7 @@ def export_xlsx(analysis: dict[str, Any], language: str = "zh") -> bytes:
     meta = wb.create_sheet(_tr(language, "method_sheet"))
     method_rows = [
         (_tr(language, "method"), _tr(language, "method_value")),
-        (_tr(language, "ra_conversion"), "Ra (ppm) = A(Ra-226) / 36600"),
+        (_tr(language, "ra_conversion"), f"Ra (ppm) = A(Ra-226) / {CONTENT_DIVISORS['Ra226']:.12g}; 1 ppm = 1 mg/kg"),
         (_tr(language, "th_conversion"), "Th (ppm) = A(Th-232) / 4.056"),
         (_tr(language, "k_conversion"), "K (%) = A(K-40) / 311"),
         (_tr(language, "validity"), _tr(language, "validity_value")),
@@ -665,13 +739,13 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
     _tr(language, "report_title")
     rows = analysis.get("results", [])
     peak_count = sum(len(peaks) for item in rows for peaks in item.get("peaks", {}).values())
-    width, row_h = 1600, 58
+    width, row_h = 1600, 110
     chart_height = 470 if len(rows) > 1 else 0
-    fit_charts_height = len(rows) * 500
+    fit_charts_height = len(rows) * 500 + sum((len(_residual_rows(item)) + 1) * row_h + 80 for item in rows)
     probability_height = 950 if analysis.get("standard", {}).get("efficiency_calibration", {}).get("points") else 0
     estimates = _conditional_rows(analysis)
     estimate_height = (len(estimates) + 1) * row_h + 80 if estimates else 0
-    height = max(1000, 150 + (len(rows) + 1) * row_h * 3 + fit_charts_height + probability_height + chart_height + (peak_count + 1) * row_h + 850 + estimate_height)
+    height = 400 + len(_result_note(analysis, language)) * 2 + max(1000, 150 + (len(rows) + 1) * row_h * 3 + fit_charts_height + probability_height + chart_height + (peak_count + 1) * row_h + 850 + estimate_height)
     image = Image.new("RGB", (width, height), "#F7F9F8")
     draw = ImageDraw.Draw(image)
     regular = ImageFont.truetype(_font_path(), 22)
@@ -695,8 +769,7 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
             draw.rectangle((50, current_y, positions[-1], current_y + row_h), fill="#FFFFFF" if ridx % 2 else "#EAF1EF")
             for col, value in enumerate(row):
                 text_value = str(value)
-                if len(text_value) > 24:
-                    text_value = text_value[:22] + "…"
+                text_value = '\n'.join(line if len(line) <= 24 else line[:22] + '…' for line in text_value.split('\n'))
                 draw.text(((positions[col] + positions[col + 1]) / 2, current_y + row_h / 2), text_value, font=small, fill="#243B4A", anchor="mm")
         bottom = y + (len(values) + 1) * row_h
         for x in positions:
@@ -706,7 +779,7 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
 
     def declaration(y: int) -> int:
         line = ""
-        for char in _result_note(analysis, language):
+        for char in _result_note(analysis, language) + " " + _counting_note(analysis, language):
             if line and draw.textlength(line + char, font=small) > width - 100:
                 draw.text((50, y), line, font=small, fill="#805628")
                 y += 27
@@ -719,16 +792,16 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
 
     y = 125
     content_headers = [_tr(language, "spectrum"), _tr(language, "file"), "Ra (ppm)", "Th (ppm)", "K (%)", _QC_TEXT[language]["qc"]]
-    content_values = [[item.get("spectrum_no"), item.get("name"), _number(_display_content(item, "Ra226"), 7),
-                       _number(_display_content(item, "Th232"), 7), _number(_display_content(item, "K40"), 7), _qc_label(item, language)] for item in rows]
+    content_values = [[item.get("spectrum_no"), item.get("name"), _number(_display_content(item, "Ra226"), 3),
+                       _number(_display_content(item, "Th232"), 3), _number(_display_content(item, "K40"), 3), _qc_label(item, language)] for item in rows]
     y = table(y, _tr(language, "content_results"), content_headers, content_values,
               [130, 330, 250, 250, 250, 330])
     y = declaration(y)
     activity_headers = [_tr(language, "sample"), _tr(language, "mass_kg"), "Th-232 / Bq/kg", "Ra-226 / Bq/kg", "K-40 / Bq/kg", _QC_TEXT[language]["qc"]]
     activity_values = [[item.get("name"), _number(item.get("mass_g", 0) / 1000, 6),
-                        _number(_display_activity(item, "Th232"), 7),
-                        _number(_display_activity(item, "Ra226"), 7),
-                        _number(_display_activity(item, "K40"), 7), _qc_label(item, language)] for item in rows]
+                        _number(_display_activity(item, "Th232"), 3),
+                        _number(_display_activity(item, "Ra226"), 3),
+                        _number(_display_activity(item, "K40"), 3), _qc_label(item, language)] for item in rows]
     y = table(y, _tr(language, "activity_title"), activity_headers,
               activity_values, [270, 180, 270, 270, 270, 280])
     y = declaration(y)
@@ -787,6 +860,11 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
         draw.text(((plot_left + plot_right) / 2, plot_bottom + 52), _tr(language, "channel"), font=small, fill="#506873", anchor="mm")
         draw.text((72, (plot_top + plot_bottom) / 2), _tr(language, "energy"), font=small, fill="#506873", anchor="mm")
         y += 470
+        residuals = _residual_rows(item)
+        if residuals:
+            y = table(y, f"{item.get('name')} — ΔE = Efit − Eref",
+                      ["CH", "Eref / keV", "ΔE / keV", "|ΔE| / keV"],
+                      [[_number(value, 6) for value in row] for row in residuals], [360, 360, 360, 360])
 
     if probability_height:
         probability_stream = _standard_probability_image(analysis.get("standard", {}), language)
@@ -844,8 +922,7 @@ def export_png(analysis: dict[str, Any], language: str = "zh") -> bytes:
                                     _number(peak.get("gross_counts")), _number(peak.get("background_counts")), _number(peak.get("net_counts"))])
     y = table(y, _tr(language, "peak_analysis"), peak_headers, peak_values,
               [190, 260, 180, 180, 180, 170, 170, 170])
-    note = _result_note(analysis, language)
-    draw.text((50, y + 5), note, font=small, fill="#506873")
+    y = declaration(y)
     draw.text((50, y + 38),
               f"workflow_status={analysis.get('quality', {}).get('workflow_status')} / "
               f"counting_uncertainty_scope=counting_statistics_only / "
@@ -869,6 +946,7 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
     from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
     _tr(language, "summary_title")
+    rows = analysis.get("results", [])
     stream = BytesIO()
     font_name = "RTKFont"
     pdfmetrics.registerFont(TTFont(font_name, _font_path(), subfontIndex=0))
@@ -910,8 +988,8 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
     headers = [_tr(language, "spectrum"), _tr(language, "file"), "Ra (ppm)", "Th (ppm)", "K (%)", _QC_TEXT[language]["qc"]]
     data = [headers]
     for item in analysis.get("results", []):
-        data.append([item.get("spectrum_no"), item.get("name"), _number(_display_content(item, "Ra226"), 7),
-                     _number(_display_content(item, "Th232"), 7), _number(_display_content(item, "K40"), 7), _qc_label(item, language)])
+        data.append([item.get("spectrum_no"), item.get("name"), _number(_display_content(item, "Ra226"), 3),
+                     _number(_display_content(item, "Th232"), 3), _number(_display_content(item, "K40"), 3), _qc_label(item, language)])
     table = Table(data, colWidths=[24 * mm, 58 * mm, 40 * mm, 40 * mm, 40 * mm, 50 * mm], repeatRows=1)
     table.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), font_name), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#176B70")),
@@ -925,9 +1003,9 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
     activity_data = [activity_headers]
     for item in analysis.get("results", []):
         activity_data.append([item.get("name"), _number(item.get("mass_g", 0) / 1000, 6),
-                              _number(_display_activity(item, "Th232"), 7),
-                              _number(_display_activity(item, "Ra226"), 7),
-                              _number(_display_activity(item, "K40"), 7), _qc_label(item, language)])
+                              _number(_display_activity(item, "Th232"), 3),
+                              _number(_display_activity(item, "Ra226"), 3),
+                              _number(_display_activity(item, "K40"), 3), _qc_label(item, language)])
     activity_table = Table(activity_data, colWidths=[46 * mm, 27 * mm, 43 * mm, 43 * mm, 43 * mm, 50 * mm], repeatRows=1)
     activity_table.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), font_name), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#176B70")),
@@ -937,9 +1015,18 @@ def export_pdf(analysis: dict[str, Any], language: str = "zh") -> bytes:
         ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
     ]))
     story = [Paragraph(title, title_style), Spacer(1, 7 * mm), table,
-             Spacer(1, 3 * mm), Paragraph(_result_note(analysis, language), body_style), Spacer(1, 7 * mm),
+             Spacer(1, 3 * mm), Paragraph(escape(_result_note(analysis, language)), body_style), Spacer(1, 7 * mm),
              Paragraph(_tr(language, "activity_title"), title_style),
              Spacer(1, 4 * mm), activity_table, Spacer(1, 3 * mm), Paragraph(_result_note(analysis, language), body_style)]
+    story.append(Paragraph(escape(_counting_note(analysis, language)), body_style))
+    for item in rows:
+        residuals = _residual_rows(item)
+        if residuals:
+            residual_table = Table([["CH", "Eref / keV", "ΔE / keV", "|ΔE| / keV"],
+                                    *[[_number(value, 6) for value in row] for row in residuals]], repeatRows=1)
+            residual_table.setStyle(TableStyle([("FONTNAME", (0, 0), (-1, -1), font_name),
+                                               ("GRID", (0, 0), (-1, -1), .5, colors.grey)]))
+            story.extend([Spacer(1, 4 * mm), Paragraph(escape(str(item.get("name"))) + " — ΔE = Efit − Eref", body_style), residual_table])
     estimates = _conditional_rows(analysis)
     if estimates:
         estimate_data = [[_tr(language, "sample"), "Ra / ppm", "Th / ppm", "K / %", "Th / Bq/kg", "Ra / Bq/kg", "K / Bq/kg"]]

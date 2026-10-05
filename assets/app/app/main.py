@@ -25,6 +25,8 @@ from .services.report_templates import (
     render_report_template,
 )
 from .services.report_validation import require_exportable_analysis
+from .services.standard_parameters import resolve_standard
+from .services.quality import input_gate
 from .version import SKILL_VERSION
 
 
@@ -34,12 +36,47 @@ DEFAULT_CALIBRATION_FILE = APP_DIR.parent / "data" / "default_calibration_source
 PROJECT_EXPORT_DIR = APP_DIR.parents[2] / "exports"
 app = FastAPI(title="Ra-Th-K Spectrum Agent", version=SKILL_VERSION)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+async def read_upload(upload: UploadFile) -> bytes:
+    content = await upload.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail='File exceeds 20 MiB limit.')
+    return content
 
 
 @app.middleware("http")
 async def disable_browser_cache(request, call_next):
     """The local workbench must always load the matching HTML, CSS and JavaScript."""
-    response = await call_next(request)
+    if request.method == 'POST':
+        # Bound the ASGI body, including chunked multipart requests, before parsing.
+        from starlette.responses import JSONResponse
+        total = 0
+        request.state.upload_limit_exceeded = False
+        receive = request._receive
+        async def limited_receive():
+            nonlocal total
+            message = await receive()
+            total += len(message.get('body', b''))
+            if total > 64 * 1024 * 1024:
+                request.state.upload_limit_exceeded = True
+                raise HTTPException(status_code=413, detail='Request exceeds 64 MiB limit.')
+            return message
+        request._receive = limited_receive
+        try:
+            declared_length = int(request.headers.get('content-length', '0'))
+        except ValueError:
+            return JSONResponse({'detail': 'Invalid Content-Length.'}, status_code=400)
+        if declared_length > 64 * 1024 * 1024:
+            return JSONResponse({'detail': 'Request exceeds 64 MiB limit.'}, status_code=413)
+    try:
+        response = await call_next(request)
+    except HTTPException as exc:
+        from starlette.responses import JSONResponse
+        return JSONResponse({'detail': exc.detail}, status_code=exc.status_code)
+    if getattr(request.state, 'upload_limit_exceeded', False):
+        from starlette.responses import JSONResponse
+        return JSONResponse({'detail': 'Request exceeds 64 MiB limit.'}, status_code=413)
     if request.url.path == "/" or request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
@@ -122,7 +159,7 @@ async def inspect_files(files: list[UploadFile] = File(...)) -> dict[str, list[d
     for upload in files:
         filename = upload.filename or "spectrum.txt"
         try:
-            result = inspect_spectrum_metadata(filename, await upload.read())
+            result = inspect_spectrum_metadata(filename, await read_upload(upload))
             inspected.append({"name": filename, **result, "error": None})
         except (ValueError, OSError) as exc:
             inspected.append({"name": filename, "live_time_s": None, "live_time_source": None, "error": str(exc)})
@@ -133,7 +170,7 @@ async def inspect_files(files: list[UploadFile] = File(...)) -> dict[str, list[d
 async def import_parameters(file: UploadFile = File(...)) -> dict[str, Any]:
     filename = file.filename or "parameters.xlsx"
     try:
-        return parse_analysis_parameters(filename, await file.read())
+        return parse_analysis_parameters(filename, await read_upload(file))
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -142,7 +179,7 @@ async def import_parameters(file: UploadFile = File(...)) -> dict[str, Any]:
 async def inspect_template(file: UploadFile = File(...)) -> dict[str, Any]:
     filename = file.filename or "report-template.docx"
     try:
-        return inspect_report_template(filename, await file.read())
+        return inspect_report_template(filename, await read_upload(file))
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -174,7 +211,7 @@ async def analyze(
 ) -> dict[str, Any]:
     try:
         request = json.loads(settings_json)
-        masses = [float(value) for value in request.get("sample_masses_g", [])]
+        masses = [float(value) if value is not None else None for value in request.get("sample_masses_g", [None] * len(samples))]
         if len(masses) != len(samples):
             raise ValueError("必须为每个样品填写质量。")
         live_times = request.get("live_times_s", {})
@@ -186,40 +223,52 @@ async def analyze(
             calibration_data = DEFAULT_CALIBRATION_FILE.read_bytes()
         elif calibration is not None:
             calibration_name = calibration.filename or "calibration.txt"
-            calibration_data = await calibration.read()
+            calibration_data = await read_upload(calibration)
         else:
             raise ValueError("请选择默认刻度源或上传自定义刻度源。")
-        standard = parse_spectrum(
-            calibration_name, calibration_data,
-            live_times.get("calibration"),
-        )
-        parsed_samples = []
+        metadata = inspect_spectrum_metadata(calibration_name, calibration_data)
+        standard_live = live_times.get('calibration') or metadata.get('live_time_s')
+        cached_samples = []
         sample_identities: list[dict[str, Any]] = []
         for index, upload in enumerate(samples):
-            content = await upload.read()
+            content = await read_upload(upload)
             sample_name = upload.filename or f"sample-{index + 1}.txt"
             sample_identities.append(file_identity(sample_name, content, "sample"))
-            parsed_samples.append(parse_spectrum(
-                sample_name, content,
-                live_times.get(str(index)) or live_times.get(upload.filename or ""),
-            ))
+            sample_metadata = inspect_spectrum_metadata(sample_name, content)
+            sample_live = live_times.get(str(index)) or live_times.get(upload.filename or '') or sample_metadata.get('live_time_s')
+            cached_samples.append((sample_name, content, sample_live))
         option_data = request.get("analysis", {})
+        assigned = resolve_standard({
+            **option_data, 'source_kind': 'bundled' if use_default else 'custom',
+            'reference_activities_bq': {key: option_data[field] for key, field in
+                [('Ra226', 'ra_activity_bq'), ('Th232', 'th_activity_bq'), ('K40', 'k_activity_bq')]
+                if field in option_data},
+        }, calibration_data)
+        preflight = input_gate({'sample_masses_g': masses,
+            'sample_live_times_s': [entry[2] for entry in cached_samples],
+            'calibration_live_time_s': standard_live,
+            'reference_activities_bq': assigned['reference_activities_bq']})
+        blocking = assigned['standard_parameter_issues'] + preflight['issues']
+        if blocking:
+            raise HTTPException(status_code=422, detail={
+                'workflow_status': 'blocked', 'issues': blocking,
+                'missing_parameters': [i['scope'] if i['code'] == 'blocked_missing_standard_parameter' else i['code'] for i in blocking],
+            })
+        standard = parse_spectrum(calibration_name, calibration_data, standard_live)
+        parsed_samples = [parse_spectrum(*entry) for entry in cached_samples]
         settings = AnalysisSettings(
-            calibration_mass_g=float(option_data.get("calibration_mass_g", 337.76)),
-            reference_date=str(option_data.get("reference_date", "2015-01-25")),
-            reference_activities_bq={
-                "Ra226": float(option_data.get("ra_activity_bq", 903)),
-                "Th232": float(option_data.get("th_activity_bq", 483)),
-                "K40": float(option_data.get("k_activity_bq", 668)),
-            },
+            calibration_mass_g=assigned['calibration_mass_g'],
+            reference_date=assigned['reference_date'],
+            reference_activities_bq=assigned['reference_activities_bq'],
+            parameter_provenance=assigned['parameter_provenance'],
             roi_half_width_keV=float(option_data.get("roi_half_width_keV", 2.4)),
             background_gap_keV=float(option_data.get("background_gap_keV", 1.5)),
             background_width_keV=float(option_data.get("background_width_keV", 3.6)),
             correct_k_interference=bool(option_data.get("correct_k_interference", True)),
-            assume_chain_equilibrium=bool(option_data.get("assume_chain_equilibrium", True)),
+            assume_chain_equilibrium=bool(option_data.get("assume_chain_equilibrium", False)),
             apply_builtin_validation_profile=bool(option_data.get("apply_legacy_empirical_profile", False)),
             source_kind="bundled" if use_default else "custom",
-            bundled_file_content_matches=use_default,
+            bundled_file_content_matches=assigned['bundled_file_content_matches'],
             standard_certificate_id=option_data.get("standard_certificate_id"),
             standard_traceable=bool(option_data.get("standard_traceable", False)),
             geometry_match=option_data.get("geometry_match"),
@@ -238,6 +287,8 @@ async def analyze(
             "activities_bq": settings.reference_activities_bq,
             "geometry_match": settings.geometry_match,
             "matrix_match": settings.matrix_match,
+            "parameter_provenance": settings.parameter_provenance,
+            "claims_independently_verified": False,
         }
         return attach_evidence(
             result,
@@ -286,12 +337,21 @@ def save_export(format_name: str, request: ExportSaveRequest) -> dict[str, Any]:
     try:
         destination.write_bytes(data)
     except PermissionError:
-        fallback_directory = _default_export_directory()
-        destination = _unique_export_destination(fallback_directory, format_name)
+        # The default remains Desktop, but the fallback must be different.
+        fallback_directory = PROJECT_EXPORT_DIR.resolve()
         try:
+            if fallback_directory == directory.resolve():
+                raise PermissionError('Project export directory is also not writable.')
+            fallback_directory.mkdir(parents=True, exist_ok=True)
+            destination = _unique_export_destination(fallback_directory, suffix)
             destination.write_bytes(data)
         except OSError as exc:
-            raise HTTPException(status_code=500, detail=f"所选目录和备用目录均无法写入：{exc}") from exc
+            return {
+                'path': None, 'directory': request.directory,
+                'requested_directory': request.directory, 'fallback': True,
+                'download_required': True, 'error_code': 'export_directory_not_writable',
+                'download_format': format_name,
+            }
         directory = fallback_directory
         fallback = True
     except OSError as exc:
@@ -299,4 +359,5 @@ def save_export(format_name: str, request: ExportSaveRequest) -> dict[str, Any]:
     return {
         "path": str(destination), "directory": str(directory),
         "fallback": fallback, "requested_directory": request.directory,
+        "download_required": False,
     }

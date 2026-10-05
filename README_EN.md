@@ -1,6 +1,6 @@
 # Ra–Th–K Quantitative 1
 
-> Current version: **v1.5.3 (2026-10-01)** · An incremental update to the same Skill, not a new project
+> Current version: **v1.5.3** · Latest synchronization: **2026-10-05** · An incremental update to the same Skill, not a new project; identify the exact revision by its Git commit
 
 [简体中文 README](README.md) · English
 
@@ -12,7 +12,19 @@ Ra–Th–K Quantitative 1 is an Agent Skill for quantitative radium, thorium, a
 
 > This project is an auxiliary calculation and traceable-reporting tool, not a certified laboratory measurement system. The user remains responsible for sample preparation, calibration-source traceability, measurement-geometry consistency, decay-chain equilibrium, detection limits, and uncertainty evaluation.
 
-![Current Ra–Th–K Quantitative 1 interface, captured locally on 2026-10-01](assets/ui-verification.png)
+![Current Ra–Th–K Quantitative 1 interface, captured locally on 2026-10-05](assets/ui-verification.png)
+
+## Latest Updates (2026-10-05)
+
+- Corrected the approximately 1000-fold overstatement of Ra (ppm) in earlier reports. Reanalyze and re-export historical reports. Bq/kg activities are not changed by this content-unit fix.
+- Shared unit conversion, three-significant-digit summaries, counting-only uncertainty hints, explicit QC reasons, and calibration-point ΔE / |ΔE| tables.
+- Custom efficiency standards no longer inherit bundled mass, reference date, or Ra/Th/K activities. Missing assigned parameters block analysis with an explicit missing-field list. Bundled defaults require explicit selection and matching file content hashes; parameter provenance is recorded separately.
+- Main tables identify each nuclide's result status. Skill instructions add Chinese trigger/exclusion examples, consolidated clarification, and a fixed handoff structure; the tool protocol reflects the current estimate-display policy.
+- Failed direct exports fall back to the project exports directory, then browser download. The actual fallback location is shown; system permissions are not modified, and initiating a download is not treated as confirmed completion.
+- Restricted the workbench to loopback listening, with 20 MiB per-file and 64 MiB request upload limits. Added synthetic reproduction fixtures and a four-group behavior-evaluation protocol. Synthetic reproduction is not real-host effectiveness or independent scientific-accuracy evidence; complete measurement uncertainty and real-host comparisons remain unverified.
+- See the [feedback fix record](references/FEEDBACK_FIX_20261005.md), [review implementation record](references/REVIEW_IMPLEMENTATION_20261003.md), [export recovery guide](references/EXPORT_RECOVERY.md), and [reproduction guide](references/REPRODUCIBLE_SKILL.md). Their "not pushed" statements describe historical local-fix stages; this synchronization is recorded in Git.
+- Pre-publication checks passed: Python compilation, 55 application tests, 6 behavior tests, JavaScript/desktop-launcher syntax checks, and live local HTTP upload/request-size checks. Existing PDF form-font warnings are not claimed to be fixed.
+- **Data licensing:** the code MIT license does not cover the bundled .xls standard spectrum; redistribution permission remains unverified. Do not redistribute that asset without permission.
 
 ## What's New in v1.5.3 (2026-10-01)
 

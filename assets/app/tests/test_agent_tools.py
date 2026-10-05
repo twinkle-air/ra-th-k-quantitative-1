@@ -46,6 +46,8 @@ class AgentToolTests(unittest.TestCase):
             "calibration_specs": {"calibration": {"slope": 0.2, "intercept": 0.1},
                                   "sample": {"slope": 0.2, "intercept": 0.1}},
         }
+        self.request['settings'].update({'calibration_mass_g': 337.76, 'reference_date': '2015-01-25',
+            'reference_activities_bq': {'Ra226': 903., 'Th232': 483., 'K40': 668.}})
     def tearDown(self):
         self.temp.cleanup()
     def test_registry_has_six_contracts(self):
@@ -104,8 +106,8 @@ class AgentToolTests(unittest.TestCase):
         self.assertIn("conditional_unverified_standard", mismatched_codes)
         self.assertNotIn("conditional_bundled_standard_documentation_unverified", mismatched_codes)
         analyzed = invoke_tool("analyze_ra_th_k", request)
-        self.assertIn("conditional_unverified_standard", {item["code"] for item in analyzed["issues"]})
-        self.assertFalse(analyzed["data"]["evidence"]["snapshot"]["standard_identity"]["bundled_file_content_matches"])
+        self.assertEqual(analyzed['error_code'], 'blocked_quality_gate')
+        self.assertIn('blocked_bundled_identity_mismatch', {item['code'] for item in analyzed['issues']})
 
     def test_missing_standard_acquisition_time_is_conditional(self):
         self.standard.write_text(spectrum_text(1.0).replace("TIME=00:00:00\n", ""), encoding="utf-8")
@@ -189,7 +191,7 @@ class AgentToolTests(unittest.TestCase):
         self.assertEqual(workbook["Specific Activity"]["D4"].value,
                          row["quality"]["nuclides"]["Ra226"]["estimated_activity_bq_kg"])
         self.assertIsNone(row["quality"]["nuclides"]["Ra226"]["reportable_activity_bq_kg"])
-        self.assertEqual(workbook["Specific Activity"]["F4"].value, "Conditional result")
+        self.assertTrue(workbook["Specific Activity"]["F4"].value.startswith("Conditional result"))
     def test_all_export_entrypoints_reject_tampered_or_blocked_snapshot(self):
         from fastapi import HTTPException
         from app.main import ExportRequest, ExportSaveRequest, _render_export, save_export

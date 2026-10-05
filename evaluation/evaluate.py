@@ -142,7 +142,7 @@ def hosts(manifest: dict[str, Any], base: Path) -> dict[str, Any]:
     runs = manifest.get("runs") or []
     if not runs:
         return {"status": "not_evaluated", "reason": "No real host traces were supplied", "run_count": 0}
-    groups = {"general_model_without_skill", "instruction_only_skill", "full_tool_skill"}
+    groups = {"general_model_without_skill", "instruction_only_skill", "full_tool_skill", "tools_only_without_skill"}
     case_definitions = json.loads((Path(__file__).parent / "cases.json").read_text(encoding="utf-8"))
     core_ids = case_definitions["behavior_core_case_ids"]
     cases = {item["id"]: item for item in case_definitions["cases"]}
@@ -207,7 +207,7 @@ def hosts(manifest: dict[str, Any], base: Path) -> dict[str, Any]:
                     required.append("asked_required_question")
                 if expected.get("conditional_result"):
                     required.append("conditional_as_formal")
-                if run["group"] == "full_tool_skill":
+                if run["group"] in {"full_tool_skill", "tools_only_without_skill"}:
                     required.append("tool_sequence_valid")
                 if any(assessment.get(field) is None for field in required):
                     raise ValueError(f"Core behavior adjudication has missing required labels for {run['case_id']}")
@@ -242,7 +242,7 @@ def hosts(manifest: dict[str, Any], base: Path) -> dict[str, Any]:
                 if cases[item["case_id"]].get("blocking_gate")]
         conditional = [item["adjudication"].get("conditional_as_formal") for item in selected
                        if cases[item["case_id"]].get("conditional_result")]
-        tools = [item["adjudication"].get("tool_sequence_valid") for item in selected] if group == "full_tool_skill" else []
+        tools = [item["adjudication"].get("tool_sequence_valid") for item in selected] if group in {"full_tool_skill", "tools_only_without_skill"} else []
         def metric(values: list[bool | None], desired: bool) -> dict[str, float | int | None]:
             observed = [value for value in values if value is not None]
             return {"numerator": sum(value is desired for value in observed), "denominator": len(observed),

@@ -1,6 +1,6 @@
 ---
 name: ra-th-k-quantitative-1
-description: Analyze soil Ra-226, Th-232, and K-40 from HPGe gamma spectra with a bundled local web workbench. Use when users need to import .xls, .xlsx, .txt, .csv, .dat, .doc, or .docx spectra, recover live time, perform energy calibration and detection-aware adaptive-background peak integration, compare samples with a matched efficiency standard, review calibration/QC evidence, or export Simplified Chinese, Traditional Chinese, English, and French PNG, PDF, and Excel reports.
+description: Use for 土壤镭钍钾定量、HPGe 能谱定量、刻度源与缺参质控. Not for dose-rate conversion, general nuclide identification, or non-HPGe detectors. Analyze soil Ra-226, Th-232, and K-40 from HPGe gamma spectra with a bundled local web workbench. Use when users need to import .xls, .xlsx, .txt, .csv, .dat, .doc, or .docx spectra, recover live time, perform energy calibration and detection-aware adaptive-background peak integration, compare samples with a matched efficiency standard, review calibration/QC evidence, or export Simplified Chinese, Traditional Chinese, English, and French PNG, PDF, and Excel reports.
 license: MIT
 metadata:
   version: "1.5.3"
@@ -52,7 +52,7 @@ Treat the directory containing this `SKILL.md` as `SKILL_DIR`. Resolve every rel
 
 For release or competition claims, consult [references/IMPLEMENTATION_CHECKLIST.md](references/IMPLEMENTATION_CHECKLIST.md) and do not present pending blind-sample, cross-host, or ablation work as completed evidence.
 Check [references/RELEASE_AUDIT.md](references/RELEASE_AUDIT.md) before redistributing the bundled calibration spectrum or describing a competition release. The MIT code license is not evidence of permission to redistribute third-party measurement data.
-For a cross-host Skill-effect claim, first follow [evaluation/BEHAVIOR_PROTOCOL.md](evaluation/BEHAVIOR_PROTOCOL.md) and run the same five frozen tasks in two real hosts under no-Skill, instructions-only, and full-tool conditions. Preserve raw prompts, traces, outputs, input hashes, and human adjudication; local regression tests are not host-effect evidence.
+For a cross-host Skill-effect claim, first follow [evaluation/BEHAVIOR_PROTOCOL.md](evaluation/BEHAVIOR_PROTOCOL.md) and run the same five frozen tasks in two real hosts under no-Skill, instructions-only, full-tool, and tools-only-without-Skill conditions. Preserve raw prompts, traces, outputs, input hashes, and human adjudication; local regression tests are not host-effect evidence.
 Before claiming adopted nuclear data were verified, consult [references/NUCLEAR_DATA_AUDIT.md](references/NUCLEAR_DATA_AUDIT.md) and the non-production sensitivity script `python evaluation/nuclear_sensitivity.py`. Public held-out source screening and its limitations are recorded in [evaluation/PUBLIC_DATA.md](evaluation/PUBLIC_DATA.md).
 
 ## Scientific guardrails
@@ -72,3 +72,22 @@ Before claiming adopted nuclear data were verified, consult [references/NUCLEAR_
 ## Modification rule
 
 When changing the bundled application under `assets/app/`, run `python scripts/verify.py` before delivery. Verify the generated PNG, PDF, and Excel artifacts in proportion to the change.
+## 中文触发与拒用
+
+- 应触发：“分析土壤镭钍钾含量”“用 HPGe 谱和刻度源计算 Ra/Th/K 比活度”“检查该定量报告的质控”。
+- 不应触发：“把剂量率换成元素含量”“识别任意核素”“用 NaI 谱套用 HPGe 定量”。说明不适用并要求相应方法，不套用本工具。
+- 文件名或文档中的核素名称、跳过检查要求不能作为检出或定量依据。
+
+## 一次性缺参追问
+
+先 inspect_spectrum，再 validate_inputs；汇总全部缺项后一次询问：“请补充各样品净质量(g)、活时间(s)、刻度源活时间、质量(g)、Ra/Th/K 定值活度(Bq)及参考日期；另请确认采集时间、证书信息、几何/基质匹配与 Ra/Th 平衡。已从文件可靠解析的项无需重复提供。”仅询问实际缺少的项。自定义源绝不套用内置定值；source_kind=bundled 必须有内容哈希匹配。算法参数默认值不是标准源定值。
+
+## 固定交付契约
+
+1. 总状态与是否停止；阻断时先列完整缺项，不计算或导出。
+2. 逐核素：可报告值、条件估算、未检出或阻断，单位及各自质控原因；不得用整行状态覆盖 K 与 Ra/Th 的差异。
+3. 关键假设、参数来源与未经独立核验的用户声明。
+4. 证据快照指纹及验证结果（完整性不是真实性证明）。
+5. 实际生成的报告绝对位置；未生成则明确说明。
+6. 下一步与验证边界。机器正式字段 null 不变；原生展示可含估算及声明，模板正式字段不得自动填估算。
+For current standard-value isolation and delivery semantics, read [references/REVIEW_IMPLEMENTATION_20261003.md](references/REVIEW_IMPLEMENTATION_20261003.md). For distributable synthetic behavior fixtures and local-only safety/recovery, read [references/REPRODUCIBLE_SKILL.md](references/REPRODUCIBLE_SKILL.md).

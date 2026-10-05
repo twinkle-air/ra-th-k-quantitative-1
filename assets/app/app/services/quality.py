@@ -46,13 +46,18 @@ def input_gate(context: dict[str, Any]) -> dict[str, Any]:
     issues: list[dict[str, str]] = []
     masses = context.get("sample_masses_g") or []
     live_times = context.get("sample_live_times_s") or []
-    if not masses or any(value is None or float(value) <= 0 for value in masses):
+    def positive(value):
+        try:
+            return math.isfinite(float(value)) and float(value) > 0
+        except (ValueError, TypeError):
+            return False
+    if not masses or any(not positive(value) for value in masses):
         issues.append(issue("blocked_missing_mass", "blocking", "Every sample requires a positive net mass."))
-    if not live_times or any(value is None or float(value) <= 0 for value in live_times):
+    if not live_times or any(not positive(value) for value in live_times):
         issues.append(issue("blocked_missing_live_time", "blocking", "Every spectrum requires a positive live time."))
-    if not context.get("calibration_live_time_s") or float(context["calibration_live_time_s"]) <= 0:
+    if not positive(context.get("calibration_live_time_s")):
         issues.append(issue("blocked_missing_live_time", "blocking", "The calibration spectrum requires live time.", "standard"))
-    if not context.get("reference_activities_bq"):
+    if any(not positive((context.get('reference_activities_bq') or {}).get(key)) for key in ('Ra226','Th232','K40')):
         issues.append(issue("blocked_unverified_standard", "blocking", "Calibration-source activities are missing.", "standard"))
     return {"workflow_status": overall_status(issues), "issues": issues}
 

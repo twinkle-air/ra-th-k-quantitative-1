@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from app.main import app
+from app.main import app, ExportSaveRequest, save_export as save_report
 from app.services.exporters import export_pdf, export_png, export_xlsx
 from app.services.report_templates import render_report_template
 from app.services.report_validation import require_exportable_analysis
@@ -58,26 +58,13 @@ class DesktopApi:
         template_name: str | None = None,
         template_base64: str | None = None,
     ) -> dict[str, str]:
-        require_exportable_analysis(analysis)
-        exporters = {"png": export_png, "pdf": export_pdf, "xlsx": export_xlsx}
-        if format_name not in {*exporters, "template"}:
-            raise ValueError("不支持的导出格式。")
-        if language not in {"zh", "zht", "en", "fr"}:
-            raise ValueError("不支持的导出语言。")
-        self.export_directory.mkdir(parents=True, exist_ok=True)
-        if format_name == "template":
-            if not template_name or not template_base64:
-                raise ValueError("请先导入报告模板。")
-            template = base64.b64decode(template_base64, validate=True)
-            suffix = Path(template_name).suffix.lower().lstrip(".")
-            data = render_report_template(template_name, template, analysis, language)
-        else:
-            suffix = format_name
-            data = exporters[format_name](analysis, language)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        destination = self.export_directory / f"镭钍钾定量分析结果_{timestamp}.{suffix}"
-        destination.write_bytes(data)
-        return {"path": str(destination), "directory": str(self.export_directory)}
+        result = save_report(format_name, ExportSaveRequest(
+            analysis=analysis, language=language, directory=str(self.export_directory),
+            template_name=template_name, template_base64=template_base64,
+        ))
+        if result.get('path'):
+            self.export_directory = Path(result['directory'])
+        return result
 
 
 def _free_local_port(preferred: int = 8000) -> int:

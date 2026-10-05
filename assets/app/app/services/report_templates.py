@@ -11,6 +11,7 @@ from xml.etree import ElementTree as ET
 
 from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen.canvas import Canvas
+from .activity_units import activity_to_content
 
 
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -259,7 +260,7 @@ def _sample_values(row: dict[str, Any], labels: dict[str, str]) -> dict[str, str
         "sample.no": str(row.get("spectrum_no", "—")),
         "sample.name": str(row.get("name", "—")),
         "sample.mass_g": _number(row.get("mass_g")),
-        "sample.ra_ppm": _number(reportable["Ra226"] / 36600 if reportable["Ra226"] is not None else None),
+        "sample.ra_ppm": _number(activity_to_content(reportable["Ra226"], "Ra226")),
         "sample.th_ppm": _number(reportable["Th232"] / 4.056 if reportable["Th232"] is not None else None),
         "sample.k_percent": _number(reportable["K40"] / 311 if reportable["K40"] is not None else None),
         "sample.ra_bq_kg": _number(reportable["Ra226"]),

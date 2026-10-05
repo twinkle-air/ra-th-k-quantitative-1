@@ -1,6 +1,6 @@
 # 核数据逐值审计状态（2026-09-24）
 
-生产计算仍使用 `assets/app/data/nuclear_data.json` v1.1.0；本文件的外部评价值**尚未写入生产常数**。核查来源与核准是两件事：可定位 URL 并不证明采用值与该评价一致。不得将现状称为“核数据全部核准”。
+生产计算仍使用 `assets/app/data/nuclear_data.json` v1.1.1；本文件的外部评价值**尚未写入生产常数**。核查来源与核准是两件事：可定位 URL 并不证明采用值与该评价一致。不得将现状称为“核数据全部核准”。
 
 | 计算项 | 当前值 | 外部核查 | 结论 |
 |---|---:|---|---|
@@ -16,3 +16,6 @@
 复算：`python evaluation/nuclear_sensitivity.py`。这是固定参数下的**解析敏感性**，不是盲样准确度。采用相同 1460 keV 峰、相同几何的样品/标准**直接计数率比**时，γ 发射概率在活动比中约掉；不能把约 3.19% 的概率差异直接施加到该分支的样品活度。绝对效率估算分支才会对概率差异敏感。K 百分含量换算在固定 Bq/kg 下约改变 -1.35%。
 
 下一次采用新版核数据前须：逐核素固定评价版本和逐值定位、记录 `Pγ` 是按发射体衰变还是母体衰变、核对分支因子是否双重计入、用保留样本重跑并更新快照版本。外部独立谱尚未获得，不能据此宣称采用新版必然提升准确度。
+
+## 2026-10-05 correction
+Ra-226 content conversion had a confirmed unit defect, not merely an unevaluated nuclear-data value. It is now derived from T½=1600 Julian years, M=226.0254 g/mol, exact SI N_A and 1 ppm=0.001 g/kg: 36575912.28408202 Bq/kg per ppm. This closes the dimensional-consistency defect only; Th/K and daughter-line evaluation limitations above remain. See FEEDBACK_FIX_20261005.md.

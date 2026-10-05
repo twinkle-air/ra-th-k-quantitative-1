@@ -26,6 +26,7 @@
       "type": "object",
       "properties": {
         "calibration_mass_g": {"type": "number", "exclusiveMinimum": 0},
+        "parameter_origins": {"type": "object", "additionalProperties": {"enum": ["file", "user", "bundled_configuration"]}},
         "reference_date": {"type": "string", "format": "date"},
         "reference_activities_bq": {
           "type": "object",
@@ -34,7 +35,6 @@
             "Th232": {"type": "number", "exclusiveMinimum": 0},
             "K40": {"type": "number", "exclusiveMinimum": 0}
           },
-          "required": ["Ra226", "Th232", "K40"],
           "additionalProperties": false
         },
         "roi_half_width_keV": {"type": "number", "exclusiveMinimum": 0},
